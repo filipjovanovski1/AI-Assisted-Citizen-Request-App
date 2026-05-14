@@ -1,0 +1,7 @@
+pre-commit:
+  parallel: true
+  commands:
+    lint-api:
+      run: npm run lint:api
+    lint-web:
+      run: npm run lint:web

@@ -1,0 +1,36 @@
+{
+  "name": "ai-assisted-citizen-request-app",
+  "version": "1.0.0",
+  "description": "An AI-assisted web platform for reporting, routing, and tracking municipal issues.",
+  "scripts": {
+    "install:api": "cd api && mvn -q dependency:go-offline",
+    "install:web": "npm --prefix web install",
+    "install:all": "npm install && npm run install:web && npm run install:api",
+    "start:api": "cd api && mvn spring-boot:run",
+    "start:web": "npm --prefix web run dev",
+    "start:all": "concurrently -k -n API,WEB -c yellow,cyan \"npm run start:api\" \"npm run start:web\"",
+    "lint:api": "cd api && mvn spotless:check",
+    "lint:api:fix": "cd api && mvn spotless:apply",
+    "lint:web": "npm --prefix web run lint",
+    "lint:web:fix": "npm --prefix web run lint:fix",
+    "lint": "npm run lint:api && npm run lint:web",
+    "lint:fix": "npm run lint:api:fix && npm run lint:web:fix"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/filipjovanovski1/AI-Assisted-Citizen-Request-App.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/filipjovanovski1/AI-Assisted-Citizen-Request-App/issues"
+  },
+  "homepage": "https://github.com/filipjovanovski1/AI-Assisted-Citizen-Request-App#readme",
+  "dependencies": {
+    "lefthook": "^2.1.6"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
