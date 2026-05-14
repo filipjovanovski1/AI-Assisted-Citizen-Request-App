@@ -9,21 +9,18 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(
-        uniqueConstraints = {
-                @UniqueConstraint(columnNames = {"user_id", "request_id"})
-        }
-)
+@Table(uniqueConstraints = {@UniqueConstraint(columnNames = {"user_id", "request_id"})})
 public class RequestVote {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long Id;
-    @ManyToOne
-    @JoinColumn(name = "request_id", nullable = false)
-    private ServiceRequest request;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long Id;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+  @ManyToOne
+  @JoinColumn(name = "request_id", nullable = false)
+  private ServiceRequest request;
+
+  @ManyToOne
+  @JoinColumn(name = "user_id", nullable = false)
+  private User user;
 }

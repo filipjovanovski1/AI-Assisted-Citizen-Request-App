@@ -6,7 +6,7 @@ import com.citizenrequest.api.dto.user.UserDto;
 
 public interface AuthService {
 
-    UserDto register(RegisterRequestDto dto);
+  UserDto register(RegisterRequestDto dto);
 
-    UserDto login(LoginRequestDto dto);
+  UserDto login(LoginRequestDto dto);
 }

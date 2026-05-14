@@ -11,19 +11,18 @@ import lombok.*;
 @Builder
 public class RequestComment {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
-    private String body;
+  @Column(nullable = false, columnDefinition = "TEXT")
+  private String body;
 
-    @ManyToOne
-    @JoinColumn(name = "request_id", nullable = false)
-    private ServiceRequest request;
+  @ManyToOne
+  @JoinColumn(name = "request_id", nullable = false)
+  private ServiceRequest request;
 
-    @ManyToOne
-    @JoinColumn(name = "author_id", nullable = false)
-    private User author;
-
+  @ManyToOne
+  @JoinColumn(name = "author_id", nullable = false)
+  private User author;
 }

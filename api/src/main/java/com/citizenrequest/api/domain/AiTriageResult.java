@@ -11,37 +11,35 @@ import lombok.*;
 @Builder
 public class AiTriageResult {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "service_request_id", nullable = false)
-    private ServiceRequest serviceRequest;
+  @OneToOne
+  @JoinColumn(name = "service_request_id", nullable = false)
+  private ServiceRequest serviceRequest;
 
-    @ManyToOne
-    @JoinColumn(name = "suggested_department_id")
-    private Department suggestedDepartment;
+  @ManyToOne
+  @JoinColumn(name = "suggested_department_id")
+  private Department suggestedDepartment;
 
-    private Double confidence;
+  private Double confidence;
 
-    private Boolean adminRevised;
+  private Boolean adminRevised;
 
-    private Boolean accepted;
+  private Boolean accepted;
 
-    private Boolean misclassification;
+  private Boolean misclassification;
 
+  @PrePersist
+  public void onCreate() {
 
-    @PrePersist
-    public void onCreate() {
-
-        if (this.adminRevised == null) {
-            this.adminRevised = false;
-        }
-
-        if (this.misclassification == null) {
-            this.misclassification = false;
-        }
-
+    if (this.adminRevised == null) {
+      this.adminRevised = false;
     }
+
+    if (this.misclassification == null) {
+      this.misclassification = false;
+    }
+  }
 }

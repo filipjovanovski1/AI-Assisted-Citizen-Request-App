@@ -4,5 +4,5 @@ import com.citizenrequest.api.dto.request.ServiceRequestDto;
 
 public interface RequestVoteService {
 
-    ServiceRequestDto toggleVote(Long requestId, Long userId);
+  ServiceRequestDto toggleVote(Long requestId, Long userId);
 }

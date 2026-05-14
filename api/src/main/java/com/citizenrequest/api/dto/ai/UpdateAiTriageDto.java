@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class UpdateAiTriageDto {
 
-    private Long departmentId;
+  private Long departmentId;
 
-    private String note;
+  private String note;
 }

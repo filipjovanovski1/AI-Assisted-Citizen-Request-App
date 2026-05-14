@@ -5,9 +5,9 @@ import lombok.Data;
 @Data
 public class UpdateDepartmentDto {
 
-    private String name;
+  private String name;
 
-    private String description;
+  private String description;
 
-    private String contactEmail;
+  private String contactEmail;
 }

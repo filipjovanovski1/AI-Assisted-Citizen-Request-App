@@ -1,10 +1,9 @@
 package com.citizenrequest.api.web;
 
-
-import lombok.RequiredArgsConstructor;
 import com.citizenrequest.api.dto.user.UpdateUserDto;
 import com.citizenrequest.api.dto.user.UserDto;
 import com.citizenrequest.api.service.UserService;
+import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -12,18 +11,15 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class UserController {
 
-    private final UserService userService;
+  private final UserService userService;
 
-    @GetMapping("/{id}")
-    public UserDto findById(@PathVariable Long id) {
-        return userService.findById(id);
-    }
+  @GetMapping("/{id}")
+  public UserDto findById(@PathVariable Long id) {
+    return userService.findById(id);
+  }
 
-    @PutMapping("/{id}/profile")
-    public UserDto updateOwnProfile(
-            @PathVariable Long id,
-            @RequestBody UpdateUserDto dto
-    ) {
-        return userService.updateOwnProfile(id, dto);
-    }
+  @PutMapping("/{id}/profile")
+  public UserDto updateOwnProfile(@PathVariable Long id, @RequestBody UpdateUserDto dto) {
+    return userService.updateOwnProfile(id, dto);
+  }
 }

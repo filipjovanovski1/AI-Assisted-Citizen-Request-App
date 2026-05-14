@@ -1,14 +1,12 @@
 package com.citizenrequest.api.repository;
 
 import com.citizenrequest.api.domain.Department;
-import org.springframework.data.jpa.repository.JpaRepository;
-
 import java.util.Optional;
+import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface DepartmentRepository extends JpaRepository<Department, Long> {
 
-    Optional<Department> findByName(String name);
+  Optional<Department> findByName(String name);
 
-    boolean existsByName(String name);
-
+  boolean existsByName(String name);
 }

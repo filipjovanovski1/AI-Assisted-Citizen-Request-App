@@ -1,22 +1,22 @@
 package com.citizenrequest.api.dto.user;
 
-import lombok.Data;
 import com.citizenrequest.api.domain.UserRole;
+import lombok.Data;
 
 @Data
 public class UpdateUserDto {
 
-    private String username;
+  private String username;
 
-    private String embg;
+  private String embg;
 
-    private String firstName;
+  private String firstName;
 
-    private String lastName;
+  private String lastName;
 
-    private String password;
+  private String password;
 
-    private UserRole role;
+  private UserRole role;
 
-    private Long departmentId;
+  private Long departmentId;
 }

@@ -1,10 +1,8 @@
 package com.citizenrequest.api.domain;
 
-
 import jakarta.persistence.*;
-import lombok.*;
-
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Entity
 @Getter
@@ -14,33 +12,33 @@ import java.time.LocalDateTime;
 @Builder
 public class RequestStatusHistory {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+  @Id
+  @GeneratedValue(strategy = GenerationType.IDENTITY)
+  private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "service_request_id", nullable = false)
-    private ServiceRequest serviceRequest;
+  @ManyToOne
+  @JoinColumn(name = "service_request_id", nullable = false)
+  private ServiceRequest serviceRequest;
 
-    @Enumerated(EnumType.STRING)
-    private RequestStatus oldStatus;
+  @Enumerated(EnumType.STRING)
+  private RequestStatus oldStatus;
 
-    @Enumerated(EnumType.STRING)
-    private RequestStatus newStatus;
+  @Enumerated(EnumType.STRING)
+  private RequestStatus newStatus;
 
-    @ManyToOne
-    @JoinColumn(name = "old_department_id")
-    private Department oldDepartment;
+  @ManyToOne
+  @JoinColumn(name = "old_department_id")
+  private Department oldDepartment;
 
-    @ManyToOne
-    @JoinColumn(name = "new_department_id")
-    private Department newDepartment;
+  @ManyToOne
+  @JoinColumn(name = "new_department_id")
+  private Department newDepartment;
 
-    @ManyToOne
-    @JoinColumn(name = "changed_by_id")
-    private User changedBy;
+  @ManyToOne
+  @JoinColumn(name = "changed_by_id")
+  private User changedBy;
 
-    private String note;
+  private String note;
 
-    private LocalDateTime changedAt;
+  private LocalDateTime changedAt;
 }

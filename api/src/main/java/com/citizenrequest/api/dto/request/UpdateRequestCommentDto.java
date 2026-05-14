@@ -5,5 +5,5 @@ import lombok.Data;
 @Data
 public class UpdateRequestCommentDto {
 
-    private String body;
+  private String body;
 }

@@ -1,6 +1,5 @@
 package com.citizenrequest.api.service.impl;
 
-import lombok.RequiredArgsConstructor;
 import com.citizenrequest.api.domain.RequestComment;
 import com.citizenrequest.api.domain.ServiceRequest;
 import com.citizenrequest.api.domain.User;
@@ -11,114 +10,108 @@ import com.citizenrequest.api.repository.RequestCommentRepository;
 import com.citizenrequest.api.repository.ServiceRequestRepository;
 import com.citizenrequest.api.repository.UserRepository;
 import com.citizenrequest.api.service.RequestCommentService;
+import java.util.List;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class RequestCommentServiceImpl implements RequestCommentService {
 
-    private final RequestCommentRepository requestCommentRepository;
-    private final ServiceRequestRepository serviceRequestRepository;
-    private final UserRepository userRepository;
+  private final RequestCommentRepository requestCommentRepository;
+  private final ServiceRequestRepository serviceRequestRepository;
+  private final UserRepository userRepository;
 
-    @Override
-    public List<RequestCommentDto> findRequestComments(Long requestId) {
-        findRequestById(requestId);
+  @Override
+  public List<RequestCommentDto> findRequestComments(Long requestId) {
+    findRequestById(requestId);
 
-        return requestCommentRepository
-                .findByRequestIdOrderByIdDesc(requestId)
-                .stream()
-                .map(this::mapToDto)
-                .toList();
+    return requestCommentRepository.findByRequestIdOrderByIdDesc(requestId).stream()
+        .map(this::mapToDto)
+        .toList();
+  }
+
+  @Override
+  public List<RequestCommentDto> findMyRequestComments(Long requestId, Long citizenId) {
+    User citizen = findUserById(citizenId);
+
+    validateCitizen(citizen);
+
+    ServiceRequest request = findRequestById(requestId);
+
+    if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
+      throw new RuntimeException("This request does not belong to the selected citizen.");
     }
 
-    @Override
-    public List<RequestCommentDto> findMyRequestComments(Long requestId, Long citizenId) {
-        User citizen = findUserById(citizenId);
+    return requestCommentRepository.findByRequestIdOrderByIdDesc(requestId).stream()
+        .map(this::mapToDto)
+        .toList();
+  }
 
-        validateCitizen(citizen);
+  @Override
+  @Transactional
+  public RequestCommentDto addCitizenComment(
+      Long requestId, Long citizenId, UpdateRequestCommentDto dto) {
+    User citizen = findUserById(citizenId);
 
-        ServiceRequest request = findRequestById(requestId);
+    validateCitizen(citizen);
 
-        if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
-            throw new RuntimeException("This request does not belong to the selected citizen.");
-        }
+    ServiceRequest request = findRequestById(requestId);
 
-        return requestCommentRepository
-                .findByRequestIdOrderByIdDesc(requestId)
-                .stream()
-                .map(this::mapToDto)
-                .toList();
+    if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
+      throw new RuntimeException("Citizens can only comment on their own requests.");
     }
 
-    @Override
-    @Transactional
-    public RequestCommentDto addCitizenComment(
-            Long requestId,
-            Long citizenId,
-            UpdateRequestCommentDto dto
-    ) {
-        User citizen = findUserById(citizenId);
+    validateBody(dto);
 
-        validateCitizen(citizen);
+    RequestComment comment = new RequestComment();
+    comment.setRequest(request);
+    comment.setAuthor(citizen);
+    comment.setBody(dto.getBody());
 
-        ServiceRequest request = findRequestById(requestId);
+    RequestComment savedComment = requestCommentRepository.save(comment);
 
-        if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
-            throw new RuntimeException("Citizens can only comment on their own requests.");
-        }
+    return mapToDto(savedComment);
+  }
 
-        validateBody(dto);
+  private void validateBody(UpdateRequestCommentDto dto) {
+    if (dto.getBody() == null || dto.getBody().isBlank()) {
+      throw new RuntimeException("Comment body is required.");
+    }
+  }
 
-        RequestComment comment = new RequestComment();
-        comment.setRequest(request);
-        comment.setAuthor(citizen);
-        comment.setBody(dto.getBody());
+  private ServiceRequest findRequestById(Long requestId) {
+    return serviceRequestRepository
+        .findById(requestId)
+        .orElseThrow(() -> new RuntimeException("Service request not found."));
+  }
 
-        RequestComment savedComment = requestCommentRepository.save(comment);
-
-        return mapToDto(savedComment);
+  private User findUserById(Long userId) {
+    if (userId == null) {
+      throw new RuntimeException("Only registered citizens can comment.");
     }
 
-    private void validateBody(UpdateRequestCommentDto dto) {
-        if (dto.getBody() == null || dto.getBody().isBlank()) {
-            throw new RuntimeException("Comment body is required.");
-        }
+    return userRepository
+        .findById(userId)
+        .orElseThrow(() -> new RuntimeException("User not found."));
+  }
+
+  private void validateCitizen(User user) {
+    if (user.getRole() != UserRole.CITIZEN) {
+      throw new RuntimeException("Only citizens can add comments to service requests.");
     }
+  }
 
-    private ServiceRequest findRequestById(Long requestId) {
-        return serviceRequestRepository.findById(requestId)
-                .orElseThrow(() -> new RuntimeException("Service request not found."));
-    }
+  private RequestCommentDto mapToDto(RequestComment comment) {
+    User author = comment.getAuthor();
 
-    private User findUserById(Long userId) {
-        if (userId == null) {
-            throw new RuntimeException("Only registered citizens can comment.");
-        }
-
-        return userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found."));
-    }
-
-    private void validateCitizen(User user) {
-        if (user.getRole() != UserRole.CITIZEN) {
-            throw new RuntimeException("Only citizens can add comments to service requests.");
-        }
-    }
-
-    private RequestCommentDto mapToDto(RequestComment comment) {
-        User author = comment.getAuthor();
-
-        return new RequestCommentDto(
-                comment.getId(),
-                comment.getRequest().getId(),
-                author.getId(),
-                author.getUsername(),
-                author.getRole(),
-                comment.getBody()
-        );
-    }
+    return new RequestCommentDto(
+        comment.getId(),
+        comment.getRequest().getId(),
+        author.getId(),
+        author.getUsername(),
+        author.getRole(),
+        comment.getBody());
+  }
 }

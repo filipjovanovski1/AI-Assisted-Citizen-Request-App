@@ -1,30 +1,30 @@
 package com.citizenrequest.api.dto.request;
 
-import lombok.Data;
 import com.citizenrequest.api.domain.RequestStatus;
+import lombok.Data;
 
 @Data
 public class UpdateServiceRequestDto {
 
-    private String title;
+  private String title;
 
-    private String description;
+  private String description;
 
-    private String address;
+  private String address;
 
-    private Double latitude;
+  private Double latitude;
 
-    private Double longitude;
+  private Double longitude;
 
-    private String imageUrl;
+  private String imageUrl;
 
-    private Boolean anonymousSubmission;
+  private Boolean anonymousSubmission;
 
-    private String guestDisplayName;
+  private String guestDisplayName;
 
-    private Long departmentId;
+  private Long departmentId;
 
-    private RequestStatus status;
+  private RequestStatus status;
 
-    private String note;
+  private String note;
 }
