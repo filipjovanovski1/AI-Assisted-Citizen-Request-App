@@ -22,6 +22,14 @@ public class DepartmentServiceImpl implements DepartmentService {
 
   @Override
   public List<DepartmentDto> findAll() {
+    return departmentRepository.findAll().stream()
+        .filter(Department::isActive)
+        .map(this::mapToDepartmentDto)
+        .toList();
+  }
+
+  @Override
+  public List<DepartmentDto> findAllForAdmin() {
     return departmentRepository.findAll().stream().map(this::mapToDepartmentDto).toList();
   }
 
@@ -97,6 +105,20 @@ public class DepartmentServiceImpl implements DepartmentService {
     departmentRepository.delete(department);
   }
 
+  @Override
+  public DepartmentDto deactivate(Long id) {
+    Department department = findEntityById(id);
+    department.setActive(false);
+    return mapToDepartmentDto(departmentRepository.save(department));
+  }
+
+  @Override
+  public DepartmentDto activate(Long id) {
+    Department department = findEntityById(id);
+    department.setActive(true);
+    return mapToDepartmentDto(departmentRepository.save(department));
+  }
+
   private void validateRequiredFields(UpdateDepartmentDto dto) {
     if (dto.getName() == null || dto.getName().isBlank()) {
       throw new RuntimeException("Department name is required.");
@@ -119,6 +141,7 @@ public class DepartmentServiceImpl implements DepartmentService {
         department.getId(),
         department.getName(),
         department.getDescription(),
-        department.getContactEmail());
+        department.getContactEmail(),
+        department.isActive());
   }
 }

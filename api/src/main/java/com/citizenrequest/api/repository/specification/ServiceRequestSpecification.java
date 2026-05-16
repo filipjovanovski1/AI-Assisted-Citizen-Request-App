@@ -2,6 +2,7 @@ package com.citizenrequest.api.repository.specification;
 
 import com.citizenrequest.api.domain.RequestStatus;
 import com.citizenrequest.api.domain.ServiceRequest;
+import java.time.LocalDate;
 import org.springframework.data.jpa.domain.Specification;
 
 public class ServiceRequestSpecification {
@@ -48,6 +49,24 @@ public class ServiceRequestSpecification {
           criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), pattern),
           criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), pattern),
           criteriaBuilder.like(criteriaBuilder.lower(root.get("address")), pattern));
+    };
+  }
+
+  public static Specification<ServiceRequest> createdBetween(LocalDate from, LocalDate to) {
+    return (root, query, criteriaBuilder) -> {
+      if (from == null && to == null) {
+        return null;
+      }
+      if (from != null && to != null) {
+        return criteriaBuilder.between(
+            root.get("createdAt").as(java.time.LocalDate.class), from, to);
+      }
+      if (from != null) {
+        return criteriaBuilder.greaterThanOrEqualTo(
+            root.get("createdAt").as(java.time.LocalDate.class), from);
+      }
+      return criteriaBuilder.lessThanOrEqualTo(
+          root.get("createdAt").as(java.time.LocalDate.class), to);
     };
   }
 }

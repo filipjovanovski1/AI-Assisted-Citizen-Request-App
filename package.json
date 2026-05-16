@@ -8,7 +8,8 @@
     "install:all": "npm install && npm run install:web && npm run install:api",
     "start:api": "cd api && mvn spring-boot:run",
     "start:web": "npm --prefix web run dev",
-    "start:all": "concurrently -k -n API,WEB -c yellow,cyan \"npm run start:api\" \"npm run start:web\"",
+    "start:all": "npm run start:api && npm run start:web",
+    "start:all:docker": "docker compose up -d && npm run start:web",
     "lint:api": "cd api && mvn spotless:check",
     "lint:api:fix": "cd api && mvn spotless:apply",
     "lint:web": "npm --prefix web run lint",
@@ -28,9 +29,15 @@
   },
   "homepage": "https://github.com/filipjovanovski1/AI-Assisted-Citizen-Request-App#readme",
   "dependencies": {
-    "lefthook": "^2.1.6"
+    "@ant-design/icons": "^6.2.3",
+    "antd": "^6.4.2",
+    "axios": "^1.16.1",
+    "leaflet": "^1.9.4",
+    "lefthook": "^2.1.6",
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "@types/leaflet": "^1.9.21"
   }
 }

@@ -23,4 +23,6 @@ public interface UserService {
   UserDto adminUpdateUser(Long userId, UpdateUserDto dto);
 
   UserDto adminCreateMunicipalEmployee(UpdateUserDto dto);
+
+  void adminDeleteUser(Long userId);
 }

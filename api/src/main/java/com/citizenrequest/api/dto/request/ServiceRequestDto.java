@@ -1,6 +1,7 @@
 package com.citizenrequest.api.dto.request;
 
 import com.citizenrequest.api.domain.RequestStatus;
+import java.time.LocalDateTime;
 
 public record ServiceRequestDto(
     Long id,
@@ -18,4 +19,5 @@ public record ServiceRequestDto(
     String departmentName,
     long voteCount,
     boolean likedByCurrentUser,
-    long commentCount) {}
+    long commentCount,
+    LocalDateTime createdAt) {}

@@ -13,4 +13,6 @@ public interface RequestVoteRepository extends JpaRepository<RequestVote, Long> 
   Optional<RequestVote> findByRequestIdAndUserId(Long requestId, Long userId);
 
   void deleteByRequestIdAndUserId(Long requestId, Long userId);
+
+  void deleteByRequestId(Long requestId);
 }

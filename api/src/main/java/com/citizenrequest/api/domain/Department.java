@@ -23,6 +23,10 @@ public class Department {
   private String description;
   private String contactEmail;
 
+  @Column(nullable = false)
+  @Builder.Default
+  private boolean active = true;
+
   @JsonIgnore
   @OneToMany(mappedBy = "department")
   private List<ServiceRequest> serviceRequests;

@@ -11,4 +11,6 @@ public interface RequestCommentRepository extends JpaRepository<RequestComment, 
   List<RequestComment> findByAuthorIdOrderByIdDesc(Long authorId);
 
   long countByRequestId(Long requestId);
+
+  void deleteByRequestId(Long requestId);
 }
