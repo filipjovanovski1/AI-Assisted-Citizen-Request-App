@@ -1,15 +1,23 @@
 package com.citizenrequest.api.service;
 
+import com.citizenrequest.api.domain.RequestStatus;
 import com.citizenrequest.api.domain.ServiceRequest;
 import com.citizenrequest.api.dto.request.ServiceRequestDto;
 import com.citizenrequest.api.dto.request.UpdateServiceRequestDto;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface ServiceRequestService {
 
   ServiceRequestDto createRequest(UpdateServiceRequestDto dto, Long citizenId);
 
-  List<ServiceRequestDto> findPublicRequests(Long currentUserId);
+  List<ServiceRequestDto> findPublicRequests(
+      Long currentUserId,
+      RequestStatus status,
+      Long departmentId,
+      String keyword,
+      LocalDate from,
+      LocalDate to);
 
   ServiceRequestDto findPublicRequestById(Long requestId, Long currentUserId);
 
@@ -28,6 +36,19 @@ public interface ServiceRequestService {
 
   ServiceRequestDto adminUpdateStatus(Long requestId, Long adminId, UpdateServiceRequestDto dto);
 
+  ServiceRequestDto adminUpdateRequestDetails(
+      Long requestId, Long adminId, UpdateServiceRequestDto dto);
+
   ServiceRequestDto departmentUpdateStatus(
       Long requestId, Long employeeId, UpdateServiceRequestDto dto);
+
+  ServiceRequestDto departmentUpdateRequestDetails(
+      Long requestId, Long employeeId, UpdateServiceRequestDto dto);
+
+  ServiceRequestDto citizenUpdateRequest(
+      Long requestId, Long citizenId, UpdateServiceRequestDto dto);
+
+  void citizenDeleteRequest(Long requestId, Long citizenId);
+
+  void adminDeleteRequest(Long requestId, Long adminId);
 }

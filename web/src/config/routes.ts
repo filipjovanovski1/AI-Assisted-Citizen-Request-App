@@ -1,0 +1,14 @@
+export const ROUTES = {
+  HOME: '/',
+  LOGIN: '/login',
+  REGISTER: '/register',
+  DASHBOARD: '/dashboard',
+  REPORT: '/report',
+  MY_REPORTS: '/my-reports',
+  REQUEST: (id: number | string) => `/requests/${id}`,
+  REQUEST_PATTERN: '/requests/:id',
+  STAFF: '/staff',
+  STAFF_IMPORT_EXPORT: '/staff/import-export',
+  ADMIN: '/admin',
+  ANALYTICS: '/analytics',
+} as const;

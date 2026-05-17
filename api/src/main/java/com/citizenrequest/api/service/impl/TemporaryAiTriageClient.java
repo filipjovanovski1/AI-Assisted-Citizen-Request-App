@@ -5,11 +5,11 @@ import com.citizenrequest.api.domain.ServiceRequest;
 import com.citizenrequest.api.dto.ai.AiDepartmentPrediction;
 import com.citizenrequest.api.service.AiTriageClient;
 import java.util.List;
-import lombok.RequiredArgsConstructor;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
+@ConditionalOnMissingBean(AiTriageClient.class)
 public class TemporaryAiTriageClient implements AiTriageClient {
 
   @Override
@@ -18,9 +18,6 @@ public class TemporaryAiTriageClient implements AiTriageClient {
     if (availableDepartments == null || availableDepartments.isEmpty()) {
       throw new RuntimeException("No departments available for AI triage.");
     }
-
-    Department fallbackDepartment = availableDepartments.get(0);
-
-    return new AiDepartmentPrediction(fallbackDepartment.getId(), 0.50);
+    return new AiDepartmentPrediction(availableDepartments.get(0).getId(), 0.50);
   }
 }

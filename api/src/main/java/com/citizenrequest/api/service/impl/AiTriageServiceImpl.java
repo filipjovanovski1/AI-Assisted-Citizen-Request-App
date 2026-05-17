@@ -41,7 +41,7 @@ public class AiTriageServiceImpl implements AiTriageService {
       throw new RuntimeException("AI triage already exists for this request.");
     }
 
-    List<Department> departments = departmentRepository.findAll();
+    List<Department> departments = departmentRepository.findAllByActiveTrue();
 
     AiDepartmentPrediction prediction = aiTriageClient.classify(request, departments);
 

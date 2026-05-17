@@ -9,6 +9,8 @@ public interface DepartmentService {
 
   List<DepartmentDto> findAll();
 
+  List<DepartmentDto> findAllForAdmin();
+
   DepartmentDto findById(Long id);
 
   Department findEntityById(Long id);
@@ -18,4 +20,8 @@ public interface DepartmentService {
   DepartmentDto update(Long id, UpdateDepartmentDto dto);
 
   void delete(Long id);
+
+  DepartmentDto deactivate(Long id);
+
+  DepartmentDto activate(Long id);
 }

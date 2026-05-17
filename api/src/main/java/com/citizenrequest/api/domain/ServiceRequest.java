@@ -2,6 +2,7 @@ package com.citizenrequest.api.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.*;
 
@@ -54,11 +55,12 @@ public class ServiceRequest {
   private List<RequestStatusHistory> statusHistory;
 
   @JsonIgnore
-  @OneToOne(mappedBy = "serviceRequest")
+  @OneToOne(mappedBy = "serviceRequest", cascade = CascadeType.ALL, orphanRemoval = true)
   private AiTriageResult aiTriageResult;
 
   private Boolean anonymousSubmission;
   private String guestDisplayName;
+  private LocalDateTime createdAt;
 
   @PrePersist
   public void prePersist() {
@@ -67,6 +69,9 @@ public class ServiceRequest {
     }
     if (this.anonymousSubmission == null) {
       this.anonymousSubmission = false;
+    }
+    if (this.createdAt == null) {
+      this.createdAt = LocalDateTime.now();
     }
   }
 }

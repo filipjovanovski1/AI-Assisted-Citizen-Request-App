@@ -9,6 +9,8 @@ public interface AiTriageResultRepository extends JpaRepository<AiTriageResult, 
 
   Optional<AiTriageResult> findByServiceRequestId(Long serviceRequestId);
 
+  void deleteByServiceRequestId(Long serviceRequestId);
+
   boolean existsByServiceRequestId(Long serviceRequestId);
 
   List<AiTriageResult> findBySuggestedDepartmentId(Long departmentId);

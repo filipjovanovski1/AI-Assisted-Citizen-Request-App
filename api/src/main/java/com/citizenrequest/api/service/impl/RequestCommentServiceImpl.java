@@ -75,6 +75,85 @@ public class RequestCommentServiceImpl implements RequestCommentService {
     return mapToDto(savedComment);
   }
 
+  @Override
+  @Transactional
+  public RequestCommentDto addDepartmentComment(
+      Long requestId, Long employeeId, UpdateRequestCommentDto dto) {
+    User employee = findUserById(employeeId);
+    validateMunicipalEmployee(employee);
+
+    ServiceRequest request = findRequestById(requestId);
+
+    if (request.getDepartment() == null || employee.getDepartment() == null) {
+      throw new RuntimeException("Department assignment is missing for comment operation.");
+    }
+
+    if (!request.getDepartment().getId().equals(employee.getDepartment().getId())) {
+      throw new RuntimeException(
+          "Department staff can only comment on requests assigned to their department.");
+    }
+
+    validateBody(dto);
+
+    RequestComment comment = new RequestComment();
+    comment.setRequest(request);
+    comment.setAuthor(employee);
+    comment.setBody(dto.getBody());
+
+    RequestComment savedComment = requestCommentRepository.save(comment);
+
+    return mapToDto(savedComment);
+  }
+
+  @Override
+  @Transactional
+  public void deleteCitizenComment(Long requestId, Long commentId, Long citizenId) {
+    User citizen = findUserById(citizenId);
+    validateCitizen(citizen);
+
+    ServiceRequest request = findRequestById(requestId);
+
+    if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
+      throw new RuntimeException("Citizens can only modify comments on their own requests.");
+    }
+
+    RequestComment comment =
+        requestCommentRepository
+            .findById(commentId)
+            .orElseThrow(() -> new RuntimeException("Request comment not found."));
+
+    if (!comment.getRequest().getId().equals(requestId)) {
+      throw new RuntimeException("Comment does not belong to the selected request.");
+    }
+
+    if (!comment.getAuthor().getId().equals(citizenId)) {
+      throw new RuntimeException("Citizens can only delete their own comments.");
+    }
+
+    requestCommentRepository.delete(comment);
+  }
+
+  @Override
+  @Transactional
+  public void adminDeleteComment(Long requestId, Long commentId, Long adminId) {
+    User admin = findUserById(adminId);
+
+    if (admin.getRole() != UserRole.ADMIN) {
+      throw new RuntimeException("Only admins can delete request comments.");
+    }
+
+    RequestComment comment =
+        requestCommentRepository
+            .findById(commentId)
+            .orElseThrow(() -> new RuntimeException("Request comment not found."));
+
+    if (!comment.getRequest().getId().equals(requestId)) {
+      throw new RuntimeException("Comment does not belong to the selected request.");
+    }
+
+    requestCommentRepository.delete(comment);
+  }
+
   private void validateBody(UpdateRequestCommentDto dto) {
     if (dto.getBody() == null || dto.getBody().isBlank()) {
       throw new RuntimeException("Comment body is required.");
@@ -100,6 +179,12 @@ public class RequestCommentServiceImpl implements RequestCommentService {
   private void validateCitizen(User user) {
     if (user.getRole() != UserRole.CITIZEN) {
       throw new RuntimeException("Only citizens can add comments to service requests.");
+    }
+  }
+
+  private void validateMunicipalEmployee(User user) {
+    if (user.getRole() != UserRole.MUNICIPAL_EMPLOYEE) {
+      throw new RuntimeException("Only department staff can add internal comments.");
     }
   }
 

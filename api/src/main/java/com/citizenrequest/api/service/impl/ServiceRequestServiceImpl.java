@@ -9,15 +9,18 @@ import com.citizenrequest.api.dto.request.ServiceRequestDto;
 import com.citizenrequest.api.dto.request.UpdateServiceRequestDto;
 import com.citizenrequest.api.repository.DepartmentRepository;
 import com.citizenrequest.api.repository.RequestCommentRepository;
+import com.citizenrequest.api.repository.RequestStatusHistoryRepository;
 import com.citizenrequest.api.repository.RequestVoteRepository;
 import com.citizenrequest.api.repository.ServiceRequestRepository;
 import com.citizenrequest.api.repository.UserRepository;
+import com.citizenrequest.api.repository.specification.ServiceRequestSpecification;
 import com.citizenrequest.api.service.AiTriageService;
 import com.citizenrequest.api.service.RequestStatusHistoryService;
 import com.citizenrequest.api.service.ServiceRequestService;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,6 +33,7 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
   private final DepartmentRepository departmentRepository;
   private final RequestVoteRepository requestVoteRepository;
   private final RequestCommentRepository requestCommentRepository;
+  private final RequestStatusHistoryRepository requestStatusHistoryRepository;
   private final RequestStatusHistoryService requestStatusHistoryService;
   private final AiTriageService aiTriageService;
 
@@ -78,7 +82,11 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     requestStatusHistoryService.recordChange(
         savedRequest, null, RequestStatus.NEW, null, null, citizen, dto.getNote());
 
-    // return mapToDto(savedRequest, citizenId);
+    if (departmentRepository.count() == 0) {
+      // Keep request as NEW when there are no departments to assign via AI triage.
+      return mapToDto(savedRequest, citizenId);
+    }
+
     aiTriageService.triageRequest(savedRequest.getId());
 
     ServiceRequest triagedRequest = findEntityById(savedRequest.getId());
@@ -87,8 +95,24 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
   }
 
   @Override
-  public List<ServiceRequestDto> findPublicRequests(Long currentUserId) {
-    return serviceRequestRepository.findAll(Sort.by(Sort.Direction.DESC, "id")).stream()
+  public List<ServiceRequestDto> findPublicRequests(
+      Long currentUserId,
+      RequestStatus status,
+      Long departmentId,
+      String keyword,
+      LocalDate from,
+      LocalDate to) {
+    Specification<ServiceRequest> spec =
+        Specification.where(ServiceRequestSpecification.hasStatus(status))
+            .and(ServiceRequestSpecification.hasDepartment(departmentId))
+            .and(ServiceRequestSpecification.containsKeyword(keyword))
+            .and(ServiceRequestSpecification.createdBetween(from, to));
+    return serviceRequestRepository
+        .findAll(
+            spec,
+            org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "id"))
+        .stream()
         .map(request -> mapToDto(request, currentUserId))
         .toList();
   }
@@ -244,6 +268,40 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
   @Override
   @Transactional
+  public ServiceRequestDto adminUpdateRequestDetails(
+      Long requestId, Long adminId, UpdateServiceRequestDto dto) {
+    User admin =
+        userRepository
+            .findById(adminId)
+            .orElseThrow(() -> new RuntimeException("Admin not found."));
+
+    validateAdmin(admin);
+
+    ServiceRequest request = findEntityById(requestId);
+
+    RequestStatus oldStatus = request.getStatus();
+    Department currentDepartment = request.getDepartment();
+
+    applyEditableFields(request, dto, true);
+
+    ServiceRequest savedRequest = serviceRequestRepository.save(request);
+
+    if (dto.getStatus() != null && dto.getStatus() != oldStatus) {
+      requestStatusHistoryService.recordChange(
+          savedRequest,
+          oldStatus,
+          dto.getStatus(),
+          currentDepartment,
+          currentDepartment,
+          admin,
+          dto.getNote());
+    }
+
+    return mapToDto(savedRequest, adminId);
+  }
+
+  @Override
+  @Transactional
   public ServiceRequestDto departmentUpdateStatus(
       Long requestId, Long employeeId, UpdateServiceRequestDto dto) {
     User employee =
@@ -286,6 +344,153 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     return mapToDto(savedRequest, employeeId);
   }
 
+  @Override
+  @Transactional
+  public ServiceRequestDto departmentUpdateRequestDetails(
+      Long requestId, Long employeeId, UpdateServiceRequestDto dto) {
+    User employee =
+        userRepository
+            .findById(employeeId)
+            .orElseThrow(() -> new RuntimeException("Employee not found."));
+
+    validateMunicipalEmployee(employee);
+
+    ServiceRequest request = findEntityById(requestId);
+
+    if (request.getDepartment() == null) {
+      throw new RuntimeException("This request is not assigned to any department.");
+    }
+
+    if (!request.getDepartment().getId().equals(employee.getDepartment().getId())) {
+      throw new RuntimeException("Employee can only edit requests assigned to their department.");
+    }
+
+    RequestStatus oldStatus = request.getStatus();
+    Department currentDepartment = request.getDepartment();
+
+    applyEditableFields(request, dto, false);
+
+    ServiceRequest savedRequest = serviceRequestRepository.save(request);
+
+    if (dto.getStatus() != null && dto.getStatus() != oldStatus) {
+      requestStatusHistoryService.recordChange(
+          savedRequest,
+          oldStatus,
+          dto.getStatus(),
+          currentDepartment,
+          currentDepartment,
+          employee,
+          dto.getNote());
+    }
+
+    return mapToDto(savedRequest, employeeId);
+  }
+
+  @Override
+  @Transactional
+  public ServiceRequestDto citizenUpdateRequest(
+      Long requestId, Long citizenId, UpdateServiceRequestDto dto) {
+    User citizen =
+        userRepository
+            .findById(citizenId)
+            .orElseThrow(() -> new RuntimeException("Citizen not found."));
+    validateCitizen(citizen);
+
+    ServiceRequest request = findEntityById(requestId);
+
+    if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
+      throw new RuntimeException("You can only edit your own requests.");
+    }
+
+    if (request.getStatus() != RequestStatus.NEW
+        && request.getStatus() != RequestStatus.IN_REVIEW) {
+      throw new RuntimeException("You can only edit requests that are in New or In Review status.");
+    }
+
+    applyEditableFields(request, dto, true);
+    return mapToDto(serviceRequestRepository.save(request), citizenId);
+  }
+
+  @Override
+  @Transactional
+  public void citizenDeleteRequest(Long requestId, Long citizenId) {
+    User citizen =
+        userRepository
+            .findById(citizenId)
+            .orElseThrow(() -> new RuntimeException("Citizen not found."));
+    validateCitizen(citizen);
+
+    ServiceRequest request = findEntityById(requestId);
+
+    if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
+      throw new RuntimeException("You can only delete your own requests.");
+    }
+
+    if (request.getStatus() != RequestStatus.NEW
+        && request.getStatus() != RequestStatus.IN_REVIEW) {
+      throw new RuntimeException(
+          "You can only delete requests that are in New or In Review status.");
+    }
+
+    deleteWithDependencies(request);
+  }
+
+  @Override
+  @Transactional
+  public void adminDeleteRequest(Long requestId, Long adminId) {
+    User admin =
+        userRepository
+            .findById(adminId)
+            .orElseThrow(() -> new RuntimeException("Admin not found."));
+    validateAdmin(admin);
+    ServiceRequest request = findEntityById(requestId);
+    deleteWithDependencies(request);
+  }
+
+  /** Delete all child rows first to avoid FK constraint failures, then delete the request. */
+  private void deleteWithDependencies(ServiceRequest request) {
+    Long id = request.getId();
+    requestStatusHistoryRepository.deleteByServiceRequestId(id);
+    requestCommentRepository.deleteByRequestId(id);
+    requestVoteRepository.deleteByRequestId(id);
+    serviceRequestRepository.delete(request);
+  }
+
+  private void applyEditableFields(
+      ServiceRequest request, UpdateServiceRequestDto dto, boolean allowAnonymousChange) {
+    if (dto.getTitle() != null && !dto.getTitle().isBlank()) {
+      request.setTitle(dto.getTitle());
+    }
+
+    if (dto.getDescription() != null && !dto.getDescription().isBlank()) {
+      request.setDescription(dto.getDescription());
+    }
+
+    if (dto.getAddress() != null) {
+      request.setAddress(dto.getAddress());
+    }
+
+    if (dto.getLatitude() != null) {
+      request.setLatitude(dto.getLatitude());
+    }
+
+    if (dto.getLongitude() != null) {
+      request.setLongitude(dto.getLongitude());
+    }
+
+    if (dto.getImageUrl() != null) {
+      request.setImageUrl(dto.getImageUrl());
+    }
+
+    if (dto.getStatus() != null) {
+      request.setStatus(dto.getStatus());
+    }
+
+    if (allowAnonymousChange && dto.getAnonymousSubmission() != null) {
+      request.setAnonymousSubmission(dto.getAnonymousSubmission());
+    }
+  }
+
   private ServiceRequestDto mapToDto(ServiceRequest request, Long currentUserId) {
     long voteCount = requestVoteRepository.countByRequestId(request.getId());
 
@@ -318,7 +523,8 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
         departmentName,
         voteCount,
         likedByCurrentUser,
-        commentCount);
+        commentCount,
+        request.getCreatedAt());
   }
 
   private String getSubmitterDisplayName(ServiceRequest request) {
@@ -348,6 +554,12 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
     if (user.getDepartment() == null) {
       throw new RuntimeException("Municipal employee must belong to a department.");
+    }
+  }
+
+  private void validateCitizen(User user) {
+    if (user.getRole() != UserRole.CITIZEN) {
+      throw new RuntimeException("Only citizens can perform this action.");
     }
   }
 }

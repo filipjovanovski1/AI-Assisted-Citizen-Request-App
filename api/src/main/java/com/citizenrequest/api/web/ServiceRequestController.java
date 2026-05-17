@@ -1,5 +1,6 @@
 package com.citizenrequest.api.web;
 
+import com.citizenrequest.api.domain.RequestStatus;
 import com.citizenrequest.api.dto.ai.AiTriageResultDto;
 import com.citizenrequest.api.dto.ai.UpdateAiTriageDto;
 import com.citizenrequest.api.dto.request.*;
@@ -8,8 +9,10 @@ import com.citizenrequest.api.service.RequestCommentService;
 import com.citizenrequest.api.service.RequestStatusHistoryService;
 import com.citizenrequest.api.service.RequestVoteService;
 import com.citizenrequest.api.service.ServiceRequestService;
+import java.time.LocalDate;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -25,8 +28,14 @@ public class ServiceRequestController {
 
   @GetMapping("/public/requests")
   public List<ServiceRequestDto> findPublicRequests(
-      @RequestParam(required = false) Long currentUserId) {
-    return serviceRequestService.findPublicRequests(currentUserId);
+      @RequestParam(required = false) Long currentUserId,
+      @RequestParam(required = false) RequestStatus status,
+      @RequestParam(required = false) Long departmentId,
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) LocalDate from,
+      @RequestParam(required = false) LocalDate to) {
+    return serviceRequestService.findPublicRequests(
+        currentUserId, status, departmentId, keyword, from, to);
   }
 
   @GetMapping("/public/requests/{requestId}")
@@ -73,6 +82,20 @@ public class ServiceRequestController {
     return serviceRequestService.findMyRequestById(requestId, citizenId);
   }
 
+  @PutMapping("/citizens/{citizenId}/requests/{requestId}")
+  public ServiceRequestDto citizenUpdateRequest(
+      @PathVariable Long citizenId,
+      @PathVariable Long requestId,
+      @RequestBody UpdateServiceRequestDto dto) {
+    return serviceRequestService.citizenUpdateRequest(requestId, citizenId, dto);
+  }
+
+  @DeleteMapping("/citizens/{citizenId}/requests/{requestId}")
+  @ResponseStatus(HttpStatus.NO_CONTENT)
+  public void citizenDeleteRequest(@PathVariable Long citizenId, @PathVariable Long requestId) {
+    serviceRequestService.citizenDeleteRequest(requestId, citizenId);
+  }
+
   @GetMapping("/citizens/{citizenId}/requests/{requestId}/comments")
   public List<RequestCommentDto> findMyRequestComments(
       @PathVariable Long citizenId, @PathVariable Long requestId) {
@@ -85,6 +108,20 @@ public class ServiceRequestController {
       @PathVariable Long requestId,
       @RequestBody UpdateRequestCommentDto dto) {
     return requestCommentService.addCitizenComment(requestId, citizenId, dto);
+  }
+
+  @DeleteMapping("/citizens/{citizenId}/requests/{requestId}/comments/{commentId}")
+  public void deleteCitizenComment(
+      @PathVariable Long citizenId, @PathVariable Long requestId, @PathVariable Long commentId) {
+    requestCommentService.deleteCitizenComment(requestId, commentId, citizenId);
+  }
+
+  @PostMapping("/employees/{employeeId}/requests/{requestId}/comments")
+  public RequestCommentDto addDepartmentComment(
+      @PathVariable Long employeeId,
+      @PathVariable Long requestId,
+      @RequestBody UpdateRequestCommentDto dto) {
+    return requestCommentService.addDepartmentComment(requestId, employeeId, dto);
   }
 
   @GetMapping("/employees/{employeeId}/requests/{requestId}/history")
@@ -104,6 +141,14 @@ public class ServiceRequestController {
       @PathVariable Long requestId,
       @RequestBody UpdateServiceRequestDto dto) {
     return serviceRequestService.departmentUpdateStatus(requestId, employeeId, dto);
+  }
+
+  @PutMapping("/employees/{employeeId}/requests/{requestId}")
+  public ServiceRequestDto departmentUpdateRequestDetails(
+      @PathVariable Long employeeId,
+      @PathVariable Long requestId,
+      @RequestBody UpdateServiceRequestDto dto) {
+    return serviceRequestService.departmentUpdateRequestDetails(requestId, employeeId, dto);
   }
 
   // =========================

@@ -1,105 +1,179 @@
 # AI-Assisted Citizen Request App
 
-This project is a web platform for reporting and tracking city/town issues. It uses a Spring Boot API for backend services and a React + TypeScript frontend for the user interface.
+A full-stack platform for citizens to report and track city/town issues. Requests are automatically triaged by an AI model (GPT-4o-mini) and routed to the responsible municipal department.
 
-The repository is organized as a monorepo with two main applications: `api` (backend) and `web` (frontend). The root `package.json` provides unified scripts so you can install, run, and lint both applications from one place.
+## Architecture
 
-## Quick start
+| Layer | Technology |
+|---|---|
+| Frontend | React + TypeScript + Vite |
+| Backend | Spring Boot (Java 21) |
+| Database | PostgreSQL + Flyway |
+| Container | Docker + Docker Compose |
 
-### 1) Requirements
+---
 
-Install [Node.js](https://nodejs.org/en/download) (LTS), npm (comes with Node.js), [Java](https://www.java.com/en/download/) 21, and [Maven](https://maven.apache.org/install.html).
+## Prerequisites
 
-### 2) Install dependencies
+- [Docker](https://docs.docker.com/get-docker/) and Docker Compose — for the Docker quick start
+- [Node.js](https://nodejs.org/en/download) LTS + npm — for local frontend dev
+- [Java 21](https://adoptium.net/) + Maven — for local backend dev
 
-Run the following from the project root:
+---
+
+## Quick Start — Docker (recommended)
 
 ```bash
-npm run install:all
+git clone <repo-url>
+cd AI-Assisted-Citizen-Request-App
+
+cp .env.example .env
+# Edit .env and fill in AI_OPENAI_API_KEY at minimum
+
+docker compose up --build -d
 ```
 
-### 3) Start the app in development mode
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8080
+
+To stop: `docker compose down`
+
+---
+
+## Quick Start — Local Development
 
 ```bash
+git clone <repo-url>
+cd AI-Assisted-Citizen-Request-App
+
+cp .env.example .env
+# Edit .env — set DB_USER, DB_PASSWORD, JWT_SECRET, AI_OPENAI_API_KEY
+
+# Start PostgreSQL (must be running and match DB_* vars in .env)
+
+# Install dependencies
+npm run install:all
+
+# Start backend + frontend
 npm run start:all
 ```
 
-By default, the frontend runs on `http://localhost:5173` and the backend runs on `http://localhost:8080`.
+- Frontend: http://localhost:5173
+- Backend API: http://localhost:8080
 
-### 4) Run quality checks
+---
 
-```bash
-npm run lint
-```
+## Environment Variables
 
-### 5) Apply automatic fixes
+Copy `.env.example` to `.env` and fill in values before running.
 
-```bash
-npm run lint:fix
-```
+| Variable | Description | Default |
+|---|---|---|
+| `DB_NAME` | PostgreSQL database name | `citizen_requests_db` |
+| `DB_USER` | PostgreSQL username | `postgres` |
+| `DB_PASSWORD` | PostgreSQL password | — |
+| `JWT_SECRET` | JWT signing secret (≥ 32 chars) | — |
+| `JWT_EXPIRATION_MS` | Token lifetime in milliseconds | `86400000` (24 h) |
+| `AI_OPENAI_API_KEY` | OpenAI API key | — |
+| `AI_OPENAI_MODEL` | OpenAI model name | `gpt-4o-mini` |
+| `CORS_ALLOWED_ORIGINS` | Allowed CORS origins | `http://localhost:5173` |
+| `VITE_API_URL` | Backend URL used by Vite proxy | `http://localhost:8080` |
 
-## Script reference
+---
+
+## Database & Migrations
+
+Flyway runs automatically on startup. Migration files live in `api/src/main/resources/db/migration/`:
+
+| File | Description |
+|---|---|
+| `V1__init.sql` | Core schema (users, departments, requests, comments, votes, AI triage) |
+| `V2__seed_departments_and_staff.sql` | Seed departments and staff accounts |
+| `V3__add_created_at_to_service_request.sql` | Adds `created_at` column |
+
+### Seed Data (V2)
+
+The V2 migration creates default department accounts you can log in with immediately:
+
+| Email | Password | Role | Department |
+|---|---|---|---|
+| `admin@city.com` | `admin123` | ADMIN | — |
+| `roads@city.com` | `staff123` | STAFF | Roads & Infrastructure |
+| `utilities@city.com` | `staff123` | STAFF | Utilities |
+| `parks@city.com` | `staff123` | STAFF | Parks & Recreation |
+| `waste@city.com` | `staff123` | STAFF | Waste Management |
+| `safety@city.com` | `staff123` | STAFF | Public Safety |
+
+---
+
+## Script Reference
 
 ### Root scripts (`package.json`)
 
 | Script | What it does |
-| --- | --- |
-| `npm run install:api` | Fetches backend dependencies via Maven in `api/`. |
-| `npm run install:web` | Installs frontend dependencies in `web/`. |
-| `npm run install:all` | Installs root, frontend, and backend dependencies. |
-| `npm run start:api` | Starts the Spring Boot backend. |
-| `npm run start:web` | Starts the Vite frontend dev server. |
-| `npm run start:all` | Starts backend and frontend together. |
-| `npm run lint:api` | Runs Spotless check for backend Java code. |
-| `npm run lint:api:fix` | Applies Spotless formatting to backend Java code. |
-| `npm run lint:web` | Runs ESLint for frontend code. |
-| `npm run lint:web:fix` | Runs ESLint with auto-fix. |
-| `npm run lint` | Runs backend and frontend lint checks. |
-| `npm run lint:fix` | Runs backend and frontend auto-fixes. |
+|---|---|
+| `npm run install:all` | Installs root, frontend, and backend dependencies |
+| `npm run start:all` | Starts backend and frontend together |
+| `npm run start:api` | Starts the Spring Boot backend only |
+| `npm run start:web` | Starts the Vite frontend dev server only |
+| `npm run lint` | Runs backend and frontend lint checks |
+| `npm run lint:fix` | Runs backend and frontend auto-fixes |
 
 ### API scripts (`api/`)
 
 | Command | What it does |
-| --- | --- |
-| `mvn spring-boot:run` | Starts the backend service. |
-| `mvn test` | Runs backend tests. |
-| `mvn spotless:check` | Verifies formatting rules for Java files. |
-| `mvn spotless:apply` | Applies formatting fixes for Java files. |
+|---|---|
+| `./mvnw spring-boot:run` | Starts the backend |
+| `./mvnw test` | Runs backend tests |
+| `./mvnw spotless:check` | Verifies Java formatting |
+| `./mvnw spotless:apply` | Applies Java formatting fixes |
 
 ### Web scripts (`web/`)
 
 | Command | What it does |
-| --- | --- |
-| `npm run dev` | Starts the Vite development server. |
-| `npm run build` | Builds the frontend for production. |
-| `npm run preview` | Serves the production build locally. |
-| `npm run lint` | Runs frontend lint checks. |
-| `npm run lint:fix` | Applies frontend lint auto-fixes. |
+|---|---|
+| `npm run dev` | Starts the Vite development server |
+| `npm run build` | Builds the frontend for production |
+| `npm run preview` | Serves the production build locally |
+| `npm run lint` | Runs ESLint |
+| `npm run lint:fix` | Runs ESLint with auto-fix |
 
-## Git hooks
+---
 
-Pre-commit checks are configured through `lefthook.yml` and can be run manually with:
+## Linting & Git Hooks
+
+Pre-commit checks run automatically via [Lefthook](https://github.com/evilmartians/lefthook) (`lefthook.yml`). To run manually:
 
 ```bash
 npx lefthook run pre-commit
 ```
 
-If no relevant staged files are detected, Lefthook may show tasks as skipped.
+---
 
 ## Troubleshooting
 
-### Spotless/JDK incompatibility error
+### Port already in use
 
-If you see errors similar to `NoSuchMethodError` from `google-java-format`, ensure:
+```bash
+lsof -i :8080   # find what's using the port
+lsof -i :5173
+```
 
-1. Java 21 is active in your shell
-2. Spotless plugin version in `api/pom.xml` is up to date
-3. local Maven cache is refreshed if needed
+### Database connection refused
 
-Helpful commands:
+Ensure PostgreSQL is running and `DB_*` variables in `.env` match your local setup.
+
+### Spotless / JDK incompatibility
+
+If you see `NoSuchMethodError` from `google-java-format`, confirm Java 21 is active:
 
 ```bash
 java -version
-cd api && mvn -version
-cd api && mvn spotless:check -e
+cd api && ./mvnw -version
+cd api && ./mvnw spotless:check -e
 ```
+
+### Docker: API fails to start
+
+Check logs: `docker compose logs api`. Common causes: missing `AI_OPENAI_API_KEY` in `.env`, or database not yet ready (retry logic is built-in via Spring retry).
+

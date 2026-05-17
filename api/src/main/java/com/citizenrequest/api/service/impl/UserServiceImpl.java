@@ -131,6 +131,17 @@ public class UserServiceImpl implements UserService {
     return mapToUserDto(savedEmployee);
   }
 
+  @Override
+  public void adminDeleteUser(Long userId) {
+    User user = findEntityById(userId);
+
+    if (user.getRole() == UserRole.ADMIN) {
+      throw new RuntimeException("Admin accounts cannot be deleted.");
+    }
+
+    userRepository.delete(user);
+  }
+
   private void updateBasicProfileFields(User user, UpdateUserDto dto) {
     if (dto.getUsername() != null && !dto.getUsername().isBlank()) {
       validateUsernameForUpdate(dto.getUsername(), user.getId());

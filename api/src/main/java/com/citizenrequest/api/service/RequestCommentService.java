@@ -11,4 +11,11 @@ public interface RequestCommentService {
   List<RequestCommentDto> findMyRequestComments(Long requestId, Long citizenId);
 
   RequestCommentDto addCitizenComment(Long requestId, Long citizenId, UpdateRequestCommentDto dto);
+
+  RequestCommentDto addDepartmentComment(
+      Long requestId, Long employeeId, UpdateRequestCommentDto dto);
+
+  void deleteCitizenComment(Long requestId, Long commentId, Long citizenId);
+
+  void adminDeleteComment(Long requestId, Long commentId, Long adminId);
 }

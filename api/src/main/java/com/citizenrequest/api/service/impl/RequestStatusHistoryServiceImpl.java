@@ -43,6 +43,7 @@ public class RequestStatusHistoryServiceImpl implements RequestStatusHistoryServ
     history.setNewDepartment(newDepartment);
     history.setChangedBy(changedBy);
     history.setNote(note);
+    history.setChangedAt(java.time.LocalDateTime.now());
 
     requestStatusHistoryRepository.save(history);
   }

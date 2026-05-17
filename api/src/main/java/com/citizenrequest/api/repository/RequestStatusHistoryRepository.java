@@ -9,4 +9,6 @@ public interface RequestStatusHistoryRepository extends JpaRepository<RequestSta
   List<RequestStatusHistory> findByServiceRequestIdOrderByChangedAtAsc(Long requestId);
 
   List<RequestStatusHistory> findByChangedByIdOrderByIdDesc(Long userId);
+
+  void deleteByServiceRequestId(Long serviceRequestId);
 }
