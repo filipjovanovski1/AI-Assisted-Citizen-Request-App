@@ -2,7 +2,6 @@ package com.citizenrequest.api.config;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -25,7 +24,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
       throws ServletException, IOException {
 
-    String token = extractJwtFromCookie(request);
+    String token = extractJwtFromHeader(request);
 
     if (token != null && jwtUtil.isTokenValid(token)) {
       try {
@@ -45,13 +44,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     filterChain.doFilter(request, response);
   }
 
-  private String extractJwtFromCookie(HttpServletRequest request) {
-    Cookie[] cookies = request.getCookies();
-    if (cookies == null) return null;
-    for (Cookie cookie : cookies) {
-      if ("jwt".equals(cookie.getName())) {
-        return cookie.getValue();
-      }
+  private String extractJwtFromHeader(HttpServletRequest request) {
+    String header = request.getHeader("Authorization");
+    if (header != null && header.startsWith("Bearer ")) {
+      return header.substring(7);
     }
     return null;
   }

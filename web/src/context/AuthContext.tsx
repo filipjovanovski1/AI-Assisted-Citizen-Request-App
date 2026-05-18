@@ -30,9 +30,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const login = async (username: string, password: string) => {
-    const data = await authApi.login({ username, password });
-    setUser(data);
-    localStorage.setItem('user', JSON.stringify(data));
+    const { user, token } = await authApi.login({ username, password });
+    setUser(user);
+    localStorage.setItem('user', JSON.stringify(user));
+    localStorage.setItem('token', token);
   };
 
   const register = async (payload: RegisterPayload) => {
@@ -45,6 +46,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     authApi.logout().catch(() => {});
     setUser(null);
     localStorage.removeItem('user');
+    localStorage.removeItem('token');
   };
 
   return (
@@ -57,6 +59,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 // eslint-disable-next-line react-refresh/only-export-components
 export const useAuth = (): AuthContextType => {
   const ctx = useContext(AuthContext);
-  if (!ctx) {throw new Error('useAuth must be used within AuthProvider');}
+  if (!ctx) {
+    throw new Error('useAuth must be used within AuthProvider');
+  }
   return ctx;
 };
