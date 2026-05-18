@@ -1,5 +1,6 @@
 package com.citizenrequest.api.service.impl;
 
+import com.citizenrequest.api.domain.AiTriageResult;
 import com.citizenrequest.api.domain.Department;
 import com.citizenrequest.api.domain.RequestStatus;
 import com.citizenrequest.api.domain.ServiceRequest;
@@ -7,6 +8,7 @@ import com.citizenrequest.api.domain.User;
 import com.citizenrequest.api.domain.UserRole;
 import com.citizenrequest.api.dto.request.ServiceRequestDto;
 import com.citizenrequest.api.dto.request.UpdateServiceRequestDto;
+import com.citizenrequest.api.repository.AiTriageResultRepository;
 import com.citizenrequest.api.repository.DepartmentRepository;
 import com.citizenrequest.api.repository.RequestCommentRepository;
 import com.citizenrequest.api.repository.RequestStatusHistoryRepository;
@@ -30,6 +32,7 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
   private final ServiceRequestRepository serviceRequestRepository;
   private final UserRepository userRepository;
+  private final AiTriageResultRepository aiTriageResultRepository;
   private final DepartmentRepository departmentRepository;
   private final RequestVoteRepository requestVoteRepository;
   private final RequestCommentRepository requestCommentRepository;
@@ -99,12 +102,14 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
       Long currentUserId,
       RequestStatus status,
       Long departmentId,
+      Boolean misclassified,
       String keyword,
       LocalDate from,
       LocalDate to) {
     Specification<ServiceRequest> spec =
         Specification.where(ServiceRequestSpecification.hasStatus(status))
             .and(ServiceRequestSpecification.hasDepartment(departmentId))
+            .and(ServiceRequestSpecification.hasMisclassification(misclassified))
             .and(ServiceRequestSpecification.containsKeyword(keyword))
             .and(ServiceRequestSpecification.createdBetween(from, to));
     return serviceRequestRepository
@@ -160,7 +165,13 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
   }
 
   @Override
-  public List<ServiceRequestDto> findDepartmentRequests(Long employeeId) {
+  public List<ServiceRequestDto> findDepartmentRequests(
+      Long employeeId,
+      RequestStatus status,
+      Boolean misclassified,
+      String keyword,
+      LocalDate from,
+      LocalDate to) {
     User employee =
         userRepository
             .findById(employeeId)
@@ -170,7 +181,19 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
 
     Long departmentId = employee.getDepartment().getId();
 
-    return serviceRequestRepository.findByDepartmentIdOrderByIdDesc(departmentId).stream()
+    Specification<ServiceRequest> spec =
+        Specification.where(ServiceRequestSpecification.hasDepartment(departmentId))
+            .and(ServiceRequestSpecification.hasStatus(status))
+            .and(ServiceRequestSpecification.hasDepartmentMisclassification(misclassified))
+            .and(ServiceRequestSpecification.containsKeyword(keyword))
+            .and(ServiceRequestSpecification.createdBetween(from, to));
+
+    return serviceRequestRepository
+        .findAll(
+            spec,
+            org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "id"))
+        .stream()
         .map(request -> mapToDto(request, employeeId))
         .toList();
   }
@@ -203,17 +226,12 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
       throw new RuntimeException("Department id is required.");
     }
 
-    Department newDepartment =
-        departmentRepository
-            .findById(dto.getDepartmentId())
-            .orElseThrow(() -> new RuntimeException("Department not found."));
-
     ServiceRequest request = findEntityById(requestId);
 
     RequestStatus oldStatus = request.getStatus();
     Department oldDepartment = request.getDepartment();
+    Department newDepartment = resolveDepartmentForAdminReview(request, dto.getDepartmentId());
 
-    request.setDepartment(newDepartment);
     request.setStatus(RequestStatus.ASSIGNED);
 
     ServiceRequest savedRequest = serviceRequestRepository.save(request);
@@ -280,18 +298,24 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     ServiceRequest request = findEntityById(requestId);
 
     RequestStatus oldStatus = request.getStatus();
-    Department currentDepartment = request.getDepartment();
+    Department oldDepartment = request.getDepartment();
+    boolean departmentReviewed = dto.getDepartmentId() != null;
+
+    Department currentDepartment =
+        departmentReviewed
+            ? resolveDepartmentForAdminReview(request, dto.getDepartmentId())
+            : request.getDepartment();
 
     applyEditableFields(request, dto, true);
 
     ServiceRequest savedRequest = serviceRequestRepository.save(request);
 
-    if (dto.getStatus() != null && dto.getStatus() != oldStatus) {
+    if (departmentReviewed || (dto.getStatus() != null && dto.getStatus() != oldStatus)) {
       requestStatusHistoryService.recordChange(
           savedRequest,
           oldStatus,
-          dto.getStatus(),
-          currentDepartment,
+          savedRequest.getStatus(),
+          oldDepartment,
           currentDepartment,
           admin,
           dto.getNote());
@@ -507,6 +531,15 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
     String departmentName =
         request.getDepartment() != null ? request.getDepartment().getName() : null;
 
+    boolean misclassification =
+        request.getAiTriageResult() != null
+            && Boolean.TRUE.equals(request.getAiTriageResult().getMisclassification());
+    boolean departmentMisclassification =
+        request.getAiTriageResult() != null
+            && Boolean.TRUE.equals(request.getAiTriageResult().getMisclassification())
+            && request.getStatus() == RequestStatus.IN_REVIEW
+            && !Boolean.TRUE.equals(request.getAiTriageResult().getAdminRevised());
+
     return new ServiceRequestDto(
         request.getId(),
         request.getTitle(),
@@ -521,10 +554,43 @@ public class ServiceRequestServiceImpl implements ServiceRequestService {
         request.getAnonymousSubmission(),
         departmentId,
         departmentName,
+        misclassification,
+        departmentMisclassification,
         voteCount,
         likedByCurrentUser,
         commentCount,
         request.getCreatedAt());
+  }
+
+  private Department resolveDepartmentForAdminReview(ServiceRequest request, Long departmentId) {
+    Department newDepartment =
+        departmentRepository
+            .findById(departmentId)
+            .orElseThrow(() -> new RuntimeException("Department not found."));
+
+    request.setDepartment(newDepartment);
+    markAdminReviewComplete(request, newDepartment);
+
+    return newDepartment;
+  }
+
+  private void markAdminReviewComplete(ServiceRequest request, Department selectedDepartment) {
+    AiTriageResult aiTriageResult = request.getAiTriageResult();
+    if (aiTriageResult == null) {
+      return;
+    }
+
+    Department suggestedDepartment = aiTriageResult.getSuggestedDepartment();
+    boolean matchesSuggestedDepartment =
+        suggestedDepartment != null
+            && suggestedDepartment.getId().equals(selectedDepartment.getId());
+    boolean historicalMisclassification =
+        Boolean.TRUE.equals(aiTriageResult.getMisclassification()) || !matchesSuggestedDepartment;
+
+    aiTriageResult.setAdminRevised(true);
+    aiTriageResult.setAccepted(matchesSuggestedDepartment);
+    aiTriageResult.setMisclassification(historicalMisclassification);
+    aiTriageResultRepository.save(aiTriageResult);
   }
 
   private String getSubmitterDisplayName(ServiceRequest request) {

@@ -7,6 +7,7 @@ import { WelcomePage } from './pages/Welcome';
 import { LoginPage } from './pages/Login';
 import { RegisterPage } from './pages/Register';
 import { DashboardPage } from './pages/Dashboard';
+import { BrowseRequestsPage } from './pages/BrowseRequests';
 import { MyReportsPage } from './pages/MyReports';
 import { ReportIssuePage } from './pages/ReportIssue';
 import { RequestDetailsPage } from './pages/RequestDetails';
@@ -66,7 +67,7 @@ const DashboardHomeRoute: React.FC = () => {
     return <DashboardPage />;
   }
 
-  return <DashboardPage />;
+  return <Navigate to={ROUTES.BROWSE} replace />;
 };
 
 const AppRoutes: React.FC = () => {
@@ -84,6 +85,7 @@ const AppRoutes: React.FC = () => {
         }
       >
         <Route path={ROUTES.DASHBOARD} element={<DashboardHomeRoute />} />
+        <Route path={ROUTES.BROWSE} element={<BrowseRequestsPage />} />
         <Route path={ROUTES.REPORT} element={<ReportIssuePage />} />
         <Route path={ROUTES.MY_REPORTS} element={<MyReportsPage />} />
         <Route path={ROUTES.REQUEST_PATTERN} element={<RequestDetailsPage />} />

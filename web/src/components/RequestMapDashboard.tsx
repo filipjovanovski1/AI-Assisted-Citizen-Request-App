@@ -1,39 +1,14 @@
-import React, { useEffect } from 'react';
-import { Alert, Button, Col, List, Progress, Row, Spin, Table, Tag, Typography, theme } from 'antd';
+import React from 'react';
+import { Alert, Col, List, Progress, Row, Spin, Table, Tag, Typography, theme } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { LinkOutlined } from '@ant-design/icons';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
 import { useNavigate } from 'react-router-dom';
 
+import { RequestLiveMap } from './RequestLiveMap';
 import type { ServiceRequestDto, RequestStatus } from '../types';
 import { STATUS_HEX_COLORS, STATUS_LABELS } from '../constants/requestStatus';
 import { ROUTES } from '../config/routes';
 
 const { Text } = Typography;
-
-const makeIcon = (color: string) =>
-  L.divIcon({
-    className: '',
-    html: `<div style="width:14px;height:14px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,.4)"></div>`,
-    iconSize: [14, 14],
-    iconAnchor: [7, 7],
-  });
-
-const FitBounds: React.FC<{ requests: ServiceRequestDto[] }> = ({ requests }) => {
-  const map = useMap();
-  useEffect(() => {
-    const points = requests.filter((r) => r.latitude && r.longitude);
-    if (points.length > 0) {
-      map.fitBounds(
-        points.map((r) => [r.latitude!, r.longitude!] as [number, number]),
-        { padding: [40, 40], maxZoom: 14 },
-      );
-    }
-  }, [requests, map]);
-  return null;
-};
 
 export interface RequestMapDashboardProps {
   requests: ServiceRequestDto[];
@@ -43,6 +18,10 @@ export interface RequestMapDashboardProps {
   extraColumns?: ColumnsType<ServiceRequestDto>;
   /** Whether to show the Department column. Defaults to true. */
   showDepartmentColumn?: boolean;
+  /** Whether to show the Top Departments by Volume list in Data Coverage. Defaults to true. */
+  showDepartmentVolume?: boolean;
+  /** Whether to show AI review summary/tagging in the dashboard and table. Defaults to false. */
+  showAiReview?: boolean;
   /** Label shown above the "Recent Reports" table. Defaults to "Recent Reports". */
   tableTitle?: string;
 }
@@ -53,6 +32,8 @@ export const RequestMapDashboard: React.FC<RequestMapDashboardProps> = ({
   error,
   extraColumns,
   showDepartmentColumn = true,
+  showDepartmentVolume = true,
+  showAiReview = false,
   tableTitle = 'Recent Reports',
 }) => {
   const navigate = useNavigate();
@@ -63,10 +44,10 @@ export const RequestMapDashboard: React.FC<RequestMapDashboardProps> = ({
     newCount: requests.filter((r) => r.status === 'NEW').length,
     reviewCount: requests.filter((r) => r.status === 'IN_REVIEW').length,
     assignedCount: requests.filter((r) => r.status === 'ASSIGNED').length,
-    inProgress: requests.filter((r) => r.status === 'IN_PROGRESS' || r.status === 'ASSIGNED')
-      .length,
+    inProgress: requests.filter((r) => r.status === 'IN_PROGRESS').length,
     resolved: requests.filter((r) => r.status === 'RESOLVED' || r.status === 'CLOSED').length,
     geoTagged: requests.filter((r) => r.latitude && r.longitude).length,
+    misclassified: requests.filter((r) => r.misclassification).length,
   };
 
   const resolutionRate = stats.total === 0 ? 0 : Math.round((stats.resolved / stats.total) * 100);
@@ -83,6 +64,7 @@ export const RequestMapDashboard: React.FC<RequestMapDashboardProps> = ({
     { key: 'assigned', metric: 'Assigned', value: stats.assignedCount },
     { key: 'progress', metric: 'In progress', value: stats.inProgress },
     { key: 'resolved', metric: 'Resolved or closed', value: stats.resolved },
+    ...(showAiReview ? [{ key: 'misclassified', metric: 'AI flagged', value: stats.misclassified }] : []),
     { key: 'departments', metric: 'Departments engaged', value: departmentsEngaged },
     { key: 'geo', metric: 'Geo-tagged requests', value: stats.geoTagged },
   ];
@@ -102,8 +84,6 @@ export const RequestMapDashboard: React.FC<RequestMapDashboardProps> = ({
   const topDepartments = Object.entries(departmentLoad)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
-
-  const mappable = requests.filter((r) => r.latitude && r.longitude);
 
   const baseColumns: ColumnsType<ServiceRequestDto> = [
     { title: '#', dataIndex: 'id', key: 'id', width: 60 },
@@ -129,6 +109,17 @@ export const RequestMapDashboard: React.FC<RequestMapDashboardProps> = ({
       key: 'status',
       render: (s: RequestStatus) => <Tag color={STATUS_HEX_COLORS[s]}>{STATUS_LABELS[s]}</Tag>,
     },
+    ...(showAiReview
+      ? ([
+          {
+            title: 'AI Review',
+            dataIndex: 'misclassification',
+            key: 'misclassification',
+            render: (misclassification: boolean) =>
+              misclassification ? <Tag color="volcano">Misclassified</Tag> : <Tag>Normal</Tag>,
+          },
+        ] as ColumnsType<ServiceRequestDto>)
+      : []),
     ...(extraColumns ?? []),
   ];
 
@@ -222,107 +213,31 @@ export const RequestMapDashboard: React.FC<RequestMapDashboardProps> = ({
             <Text style={{ display: 'block', marginBottom: 8 }}>Geo-tagged reports</Text>
             <Progress percent={geoTagRate} strokeColor="#2f81f7" />
             <Text type="secondary">{stats.geoTagged} requests include exact coordinates.</Text>
-            <div style={{ marginTop: 14 }}>
-              <Text strong style={{ display: 'block', marginBottom: 8 }}>
-                Top Departments by Volume
-              </Text>
-              <List
-                size="small"
-                dataSource={topDepartments}
-                locale={{ emptyText: 'No department data yet' }}
-                renderItem={([name, count]) => (
-                  <List.Item style={{ paddingLeft: 0, paddingRight: 0 }}>
-                    <Text>{name}</Text>
-                    <Tag>{count}</Tag>
-                  </List.Item>
-                )}
-              />
-            </div>
+            {showDepartmentVolume ? (
+              <div style={{ marginTop: 14 }}>
+                <Text strong style={{ display: 'block', marginBottom: 8 }}>
+                  Top Departments by Volume
+                </Text>
+                <List
+                  size="small"
+                  dataSource={topDepartments}
+                  locale={{ emptyText: 'No department data yet' }}
+                  renderItem={([name, count]) => (
+                    <List.Item style={{ paddingLeft: 0, paddingRight: 0 }}>
+                      <Text>{name}</Text>
+                      <Tag>{count}</Tag>
+                    </List.Item>
+                  )}
+                />
+              </div>
+            ) : null}
           </div>
         </Col>
       </Row>
 
       <Row gutter={8} style={{ marginBottom: 8 }}>
         <Col xs={24}>
-          <div style={cardStyle}>
-            <div
-              style={{
-                ...cardHeaderStyle,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                flexWrap: 'wrap',
-                gap: 8,
-              }}
-            >
-              <Text strong>Live Map</Text>
-              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                {(Object.entries(STATUS_HEX_COLORS) as [RequestStatus, string][]).map(([k, c]) => (
-                  <span
-                    key={k}
-                    style={{ fontSize: 11, display: 'flex', alignItems: 'center', gap: 4 }}
-                  >
-                    <span
-                      style={{
-                        width: 10,
-                        height: 10,
-                        borderRadius: '50%',
-                        background: c,
-                        display: 'inline-block',
-                        flexShrink: 0,
-                      }}
-                    />
-                    {STATUS_LABELS[k]}
-                  </span>
-                ))}
-              </div>
-            </div>
-            <MapContainer
-              center={[41.9961, 21.4314]}
-              zoom={12}
-              style={{ height: 500, width: '100%' }}
-            >
-              <TileLayer
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-              />
-              <FitBounds requests={mappable} />
-              {mappable.map((r) => (
-                <Marker
-                  key={r.id}
-                  position={[r.latitude!, r.longitude!]}
-                  icon={makeIcon(STATUS_HEX_COLORS[r.status])}
-                  eventHandlers={{ mouseover: (e) => e.target.openPopup() }}
-                >
-                  <Popup>
-                    <strong>{r.title}</strong>
-                    <br />
-                    <span style={{ color: STATUS_HEX_COLORS[r.status] }}>
-                      {STATUS_LABELS[r.status]}
-                    </span>
-                    <br />
-                    Comments: {r.commentCount} | Votes: {r.voteCount}
-                    {r.departmentName && (
-                      <>
-                        <br />
-                        {r.departmentName}
-                      </>
-                    )}
-                    <br />
-                    <Button
-                      type="link"
-                      size="small"
-                      icon={<LinkOutlined />}
-                      style={{ padding: 0, marginTop: 6 }}
-                      onClick={() => navigate(ROUTES.REQUEST(r.id))}
-                    >
-                      View details
-                    </Button>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
-          </div>
+          <RequestLiveMap requests={requests} loading={loading} />
         </Col>
       </Row>
 

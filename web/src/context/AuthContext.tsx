@@ -36,9 +36,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const register = async (payload: RegisterPayload) => {
-    const data = await authApi.register(payload);
-    setUser(data);
-    localStorage.setItem('user', JSON.stringify(data));
+    await authApi.register(payload);
+    setUser(null);
+    localStorage.removeItem('user');
   };
 
   const logout = () => {

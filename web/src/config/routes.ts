@@ -3,6 +3,7 @@ export const ROUTES = {
   LOGIN: '/login',
   REGISTER: '/register',
   DASHBOARD: '/dashboard',
+  BROWSE: '/browse',
   REPORT: '/report',
   MY_REPORTS: '/my-reports',
   REQUEST: (id: number | string) => `/requests/${id}`,

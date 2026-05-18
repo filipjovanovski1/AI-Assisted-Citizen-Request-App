@@ -41,6 +41,7 @@ import {
 } from '../services/api';
 import type {
   AiTriageResultDto,
+  DepartmentDto,
   RequestCommentDto,
   RequestStatus,
   RequestStatusHistoryDto,
@@ -50,6 +51,7 @@ import { useAuth } from '../context/AuthContext';
 import { toast, getApiError } from '../utils/toast';
 import { StatusTag } from '../components/StatusTag';
 import { STATUS_LABELS, STATUS_SELECT_OPTIONS } from '../constants/requestStatus';
+import { resolveRequestImageUrl } from '../utils/requestImages';
 
 const { Title, Text, Paragraph } = Typography;
 const { TextArea } = Input;
@@ -70,13 +72,14 @@ export const RequestDetailsPage: React.FC = () => {
   const [togglingVote, setTogglingVote] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
-  const [savingNote, setSavingNote] = useState(false);
   const [aiTriage, setAiTriage] = useState<AiTriageResultDto | null>(null);
   const [aiTriageLoading, setAiTriageLoading] = useState(false);
+  const [departments, setDepartments] = useState<DepartmentDto[]>([]);
   const [editForm] = Form.useForm<{
     title: string;
     description: string;
     address?: string;
+    departmentId?: number;
     status: RequestStatus;
     note?: string;
   }>();
@@ -123,10 +126,44 @@ export const RequestDetailsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    const doLoad = async () => {
-      await loadRequestData();
+    let active = true;
+
+    void (async () => {
+      if (!Number.isFinite(requestId)) {
+        if (active) {
+          setError('Invalid request id.');
+          setLoading(false);
+        }
+        return;
+      }
+
+      try {
+        const baseRequest = await publicApi.getRequestById(requestId, user?.id);
+        const [historyData, commentsData] = await Promise.all([
+          publicApi.getRequestHistory(requestId),
+          publicApi.getRequestComments(requestId),
+        ]);
+
+        if (active) {
+          setRequest(baseRequest);
+          setHistory(historyData);
+          setComments(commentsData);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) {
+          setError(getApiError(err, 'Failed to load request details.'));
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
     };
-    void doLoad();
   }, [requestId, user?.id]);
 
   useEffect(() => {
@@ -146,6 +183,28 @@ export const RequestDetailsPage: React.FC = () => {
     void doLoad();
     return () => { active = false; };
   }, [requestId, isDepartmentUser]);
+
+  useEffect(() => {
+    if (!isAdmin) { return; }
+
+    let active = true;
+    adminApi
+      .getDepartments()
+      .then((data) => {
+        if (active) {
+          setDepartments(data);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setDepartments([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [isAdmin]);
 
   const handleAcceptAiSuggestion = async () => {
     if (!user || !aiTriage) {return;}
@@ -256,36 +315,11 @@ export const RequestDetailsPage: React.FC = () => {
       title: request.title,
       description: request.description,
       address: request.address,
+      departmentId: request.departmentId,
       status: request.status,
       note: undefined,
     });
     setEditOpen(true);
-  };
-
-  const handleAddTimelineNote = async () => {
-    if (!user || !request) {return;}
-
-    const noteValue = (editForm.getFieldValue('note') as string | undefined)?.trim();
-    if (!noteValue) {
-      toast.warning('Enter a note first.');
-      return;
-    }
-
-    setSavingNote(true);
-    try {
-      if (user.role === 'ADMIN') {
-        await adminApi.updateRequestStatus(request.id, user.id, request.status, noteValue);
-      } else if (user.role === 'MUNICIPAL_EMPLOYEE') {
-        await staffApi.updateRequestStatus(user.id, request.id, request.status, noteValue);
-      }
-      toast.success('Timeline note added.');
-      editForm.setFieldValue('note', undefined);
-      await loadRequestData();
-    } catch (err) {
-      toast.error(getApiError(err, 'Failed to add timeline note.'));
-    } finally {
-      setSavingNote(false);
-    }
   };
 
   const handleSaveEdit = async () => {
@@ -294,16 +328,21 @@ export const RequestDetailsPage: React.FC = () => {
     const nextTitle = values.title.trim();
     const nextDescription = values.description.trim();
     const nextAddress = values.address?.trim();
+    const nextDepartmentId = values.departmentId;
     const nextStatus = values.status;
     const nextNote = values.note?.trim();
 
     const statusChanged = nextStatus !== request.status;
+    const departmentReviewed =
+      user.role === 'ADMIN'
+      && editForm.isFieldTouched('departmentId')
+      && typeof nextDepartmentId === 'number';
     const detailsChanged =
       nextTitle !== request.title ||
       nextDescription !== request.description ||
       (nextAddress || undefined) !== (request.address || undefined);
 
-    if (!statusChanged && !detailsChanged && !nextNote) {
+    if (!statusChanged && !detailsChanged && !departmentReviewed && !nextNote) {
       toast.info('No changes to save.');
       return;
     }
@@ -323,10 +362,28 @@ export const RequestDetailsPage: React.FC = () => {
         return;
       }
 
-      if (statusChanged || nextNote) {
-        if (user.role === 'ADMIN') {
+      if (user.role === 'ADMIN') {
+        if (departmentReviewed || detailsChanged || statusChanged) {
+          await adminApi.updateRequestDetails(request.id, user.id, {
+            title: nextTitle,
+            description: nextDescription,
+            address: nextAddress,
+            departmentId: departmentReviewed ? nextDepartmentId : undefined,
+            status: nextStatus,
+            note: nextNote,
+          });
+        } else if (nextNote) {
           await adminApi.updateRequestStatus(request.id, user.id, nextStatus, nextNote);
-        } else if (user.role === 'MUNICIPAL_EMPLOYEE') {
+        }
+
+        toast.success('Request updated successfully.');
+        setEditOpen(false);
+        await loadRequestData();
+        return;
+      }
+
+      if (statusChanged || nextNote) {
+        if (user.role === 'MUNICIPAL_EMPLOYEE') {
           await staffApi.updateRequestStatus(user.id, request.id, nextStatus, nextNote);
         }
       }
@@ -338,9 +395,7 @@ export const RequestDetailsPage: React.FC = () => {
           address: nextAddress,
         };
 
-        if (user.role === 'ADMIN') {
-          await adminApi.updateRequestDetails(request.id, user.id, detailsPayload);
-        } else if (user.role === 'MUNICIPAL_EMPLOYEE') {
+        if (user.role === 'MUNICIPAL_EMPLOYEE') {
           await staffApi.updateRequestDetails(user.id, request.id, detailsPayload);
         }
       }
@@ -429,9 +484,28 @@ export const RequestDetailsPage: React.FC = () => {
                   {request.title}
                 </Title>
                 <StatusTag status={request.status} />
+                {isAdmin && request.misclassification && (
+                  <Tag color="volcano">Misclassified</Tag>
+                )}
+                {isDepartmentUser && request.departmentMisclassification && (
+                  <Tag color="volcano">Misclassified</Tag>
+                )}
               </Space>
 
               <Paragraph style={{ marginBottom: 0 }}>{request.description}</Paragraph>
+
+              <img
+                src={resolveRequestImageUrl(request.imageUrl)}
+                alt={request.title}
+                style={{
+                  width: '100%',
+                  maxWidth: 360,
+                  aspectRatio: '1 / 1',
+                  objectFit: 'cover',
+                  borderRadius: 10,
+                  display: 'block',
+                }}
+              />
 
               <Descriptions column={1} size="small" bordered>
                 <Descriptions.Item label="Request ID">#{request.id}</Descriptions.Item>
@@ -648,22 +722,25 @@ export const RequestDetailsPage: React.FC = () => {
         title={`Edit Request #${request.id}`}
         open={editOpen}
         onCancel={() => setEditOpen(false)}
-        footer={[
-          <Button key="cancel" onClick={() => setEditOpen(false)}>
-            Cancel
-          </Button>,
-          <Button
-            key="add-note"
-            onClick={handleAddTimelineNote}
-            loading={savingNote}
-            disabled={savingEdit}
-          >
-            Add Note
-          </Button>,
-          <Button key="save" type="primary" onClick={handleSaveEdit} loading={savingEdit}>
-            Save Changes
-          </Button>,
-        ]}
+        footer={
+          user?.role === 'CITIZEN'
+            ? [
+                <Button key="cancel" onClick={() => setEditOpen(false)}>
+                  Cancel
+                </Button>,
+                <Button key="save" type="primary" onClick={handleSaveEdit} loading={savingEdit}>
+                  Save Changes
+                </Button>,
+              ]
+            : [
+                <Button key="cancel" onClick={() => setEditOpen(false)}>
+                  Cancel
+                </Button>,
+                <Button key="save" type="primary" onClick={handleSaveEdit} loading={savingEdit}>
+                  Save Changes
+                </Button>,
+              ]
+        }
       >
         <Form form={editForm} layout="vertical">
           <Form.Item name="title" label="Title" rules={[{ required: true }]}>
@@ -675,6 +752,18 @@ export const RequestDetailsPage: React.FC = () => {
           <Form.Item name="address" label="Address">
             <Input />
           </Form.Item>
+          {user?.role === 'ADMIN' && (
+            <Form.Item name="departmentId" label="Department">
+              <Select
+                allowClear
+                placeholder="Keep current department"
+                options={departments.map((department) => ({
+                  value: department.id,
+                  label: department.name,
+                }))}
+              />
+            </Form.Item>
+          )}
           {user?.role !== 'CITIZEN' && (
             <>
               <Form.Item name="status" label="Status" rules={[{ required: true }]}>

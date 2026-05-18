@@ -13,6 +13,17 @@ import type {
 
 const http = axios.create({ baseURL: '/api', withCredentials: true });
 
+export const uploadApi = {
+  uploadRequestImage: async (file: File): Promise<{ imageUrl: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await http.post<{ imageUrl: string }>('/uploads/request-image', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+};
+
 export const authApi = {
   login: async (body: { username: string; password: string }): Promise<UserDto> => {
     const { data } = await http.post<UserDto>('/auth/login', body);
@@ -39,6 +50,7 @@ export const publicApi = {
     filters?: {
       status?: RequestStatus;
       departmentId?: number;
+      misclassified?: boolean;
       keyword?: string;
       from?: string;
       to?: string;
@@ -175,8 +187,19 @@ export const userApi = {
 };
 
 export const staffApi = {
-  getDepartmentRequests: async (employeeId: number): Promise<ServiceRequestDto[]> => {
-    const { data } = await http.get<ServiceRequestDto[]>(`/employees/${employeeId}/requests`);
+  getDepartmentRequests: async (
+    employeeId: number,
+    filters?: {
+      status?: RequestStatus;
+      misclassified?: boolean;
+      keyword?: string;
+      from?: string;
+      to?: string;
+    },
+  ): Promise<ServiceRequestDto[]> => {
+    const { data } = await http.get<ServiceRequestDto[]>(`/employees/${employeeId}/requests`, {
+      params: filters,
+    });
     return data;
   },
   getDepartmentRequestHistory: async (
@@ -279,6 +302,21 @@ export const adminApi = {
     const { data } = await http.post<UserDto>('/admin/users/municipal-employees', payload);
     return data;
   },
+  updateUser: async (
+    id: number,
+    payload: {
+      username?: string;
+      firstName?: string;
+      lastName?: string;
+      embg?: string;
+      password?: string;
+      role?: 'CITIZEN' | 'MUNICIPAL_EMPLOYEE' | 'ADMIN';
+      departmentId?: number;
+    },
+  ): Promise<UserDto> => {
+    const { data } = await http.put<UserDto>(`/admin/users/${id}`, payload);
+    return data;
+  },
   deleteUser: async (id: number): Promise<void> => {
     await http.delete(`/admin/users/${id}`);
   },
@@ -287,6 +325,7 @@ export const adminApi = {
     filters?: {
       status?: RequestStatus;
       departmentId?: number;
+      misclassified?: boolean;
       keyword?: string;
       from?: string;
       to?: string;
@@ -333,6 +372,7 @@ export const adminApi = {
       latitude?: number;
       longitude?: number;
       imageUrl?: string;
+      departmentId?: number;
       status?: RequestStatus;
       note?: string;
     },

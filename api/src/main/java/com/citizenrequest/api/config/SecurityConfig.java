@@ -45,6 +45,8 @@ public class SecurityConfig {
             auth ->
                 auth.requestMatchers("/api/auth/**", "/error")
                     .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/uploads/**")
+                    .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/public/**", "/api/departments/**")
                     .permitAll()
                     .requestMatchers("/api/admin/**")
@@ -57,6 +59,8 @@ public class SecurityConfig {
                     .hasRole("CITIZEN")
                     .requestMatchers(HttpMethod.POST, "/api/requests/*/vote")
                     .hasRole("CITIZEN")
+                    .requestMatchers(HttpMethod.POST, "/api/uploads/**")
+                    .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/requests/*/ai-triage")
                     .authenticated()
                     .requestMatchers("/api/users/**")

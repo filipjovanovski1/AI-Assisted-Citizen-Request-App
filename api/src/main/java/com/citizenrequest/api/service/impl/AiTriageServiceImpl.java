@@ -202,8 +202,11 @@ public class AiTriageServiceImpl implements AiTriageService {
         result.getSuggestedDepartment() != null
             && !result.getSuggestedDepartment().getId().equals(newDepartment.getId());
 
+    boolean historicalMisclassification =
+        Boolean.TRUE.equals(result.getMisclassification()) || changedFromAiSuggestion;
+
     result.setAdminRevised(true);
-    result.setMisclassification(changedFromAiSuggestion);
+    result.setMisclassification(historicalMisclassification);
     result.setAccepted(!changedFromAiSuggestion);
 
     ServiceRequest savedRequest = serviceRequestRepository.save(request);

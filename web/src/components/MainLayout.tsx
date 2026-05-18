@@ -36,19 +36,22 @@ export const MainLayout: React.FC = () => {
   const initials = user
     ? `${user.firstName?.[0] ?? ''}${user.lastName?.[0] ?? ''}`.toUpperCase()
     : '?';
+  const homeRoute = user?.role === 'CITIZEN' ? ROUTES.BROWSE : ROUTES.DASHBOARD;
 
   const navItems = [
-    {
-      key: ROUTES.DASHBOARD,
-      icon: <HomeOutlined />,
-      label: user?.role === 'MUNICIPAL_EMPLOYEE' ? 'Department Dashboard' : 'Dashboard',
-    },
     ...(user?.role === 'CITIZEN'
       ? [
+          { key: ROUTES.BROWSE, icon: <HomeOutlined />, label: 'Browse Requests' },
           { key: ROUTES.REPORT, icon: <PlusCircleOutlined />, label: 'Report Issue' },
           { key: ROUTES.MY_REPORTS, icon: <UnorderedListOutlined />, label: 'My Reports' },
         ]
-      : []),
+      : [
+          {
+            key: ROUTES.DASHBOARD,
+            icon: <HomeOutlined />,
+            label: user?.role === 'MUNICIPAL_EMPLOYEE' ? 'Department Dashboard' : 'Dashboard',
+          },
+        ]),
     ...(user?.role === 'MUNICIPAL_EMPLOYEE'
       ? [{ key: ROUTES.STAFF_IMPORT_EXPORT, icon: <SwapOutlined />, label: 'Import / Export' }]
       : []),
@@ -80,7 +83,7 @@ export const MainLayout: React.FC = () => {
         {/* Left: Brand */}
         <div
           style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
-          onClick={() => navigate(ROUTES.DASHBOARD)}
+          onClick={() => navigate(homeRoute)}
         >
           <div
             style={{

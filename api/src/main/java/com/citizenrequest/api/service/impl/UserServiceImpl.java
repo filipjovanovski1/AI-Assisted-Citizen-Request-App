@@ -99,26 +99,43 @@ public class UserServiceImpl implements UserService {
   @Override
   public UserDto adminCreateMunicipalEmployee(UpdateUserDto dto) {
     validateRequiredForMunicipalEmployeeCreation(dto);
-
-    if (userRepository.existsByUsername(dto.getUsername())) {
-      throw new RuntimeException("Username already exists.");
-    }
-
-    if (dto.getEmbg() != null
-        && !dto.getEmbg().isBlank()
-        && userRepository.existsByEmbg(dto.getEmbg())) {
-      throw new RuntimeException("EMBG already exists.");
-    }
+    String embg = normalizeOptional(dto.getEmbg());
 
     Department department =
         departmentRepository
             .findById(dto.getDepartmentId())
             .orElseThrow(() -> new RuntimeException("Department not found."));
 
+    User existingUser = userRepository.findByUsername(dto.getUsername()).orElse(null);
+
+    if (existingUser != null) {
+      if (existingUser.getRole() != UserRole.CITIZEN) {
+        throw new RuntimeException("Username already exists.");
+      }
+
+      if (embg != null) {
+        validateEmbgForUpdate(embg, existingUser.getId());
+      }
+
+      existingUser.setFirstName(dto.getFirstName());
+      existingUser.setLastName(dto.getLastName());
+      existingUser.setPassword(passwordEncoder.encode(dto.getPassword()));
+      existingUser.setEmbg(embg);
+      existingUser.setRole(UserRole.MUNICIPAL_EMPLOYEE);
+      existingUser.setDepartment(department);
+
+      User upgradedUser = userRepository.save(existingUser);
+      return mapToUserDto(upgradedUser);
+    }
+
+    if (embg != null && userRepository.existsByEmbg(embg)) {
+      throw new RuntimeException("EMBG already exists.");
+    }
+
     User employee =
         User.builder()
             .username(dto.getUsername())
-            .embg(dto.getEmbg())
+            .embg(embg)
             .firstName(dto.getFirstName())
             .lastName(dto.getLastName())
             .password(passwordEncoder.encode(dto.getPassword()))
@@ -220,6 +237,15 @@ public class UserServiceImpl implements UserService {
                 throw new RuntimeException("EMBG already exists.");
               }
             });
+  }
+
+  private String normalizeOptional(String value) {
+    if (value == null) {
+      return null;
+    }
+
+    String trimmedValue = value.trim();
+    return trimmedValue.isEmpty() ? null : trimmedValue;
   }
 
   private UserDto mapToUserDto(User user) {
