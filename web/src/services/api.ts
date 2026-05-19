@@ -11,25 +11,23 @@ import type {
   ImportResultDto,
 } from '../types';
 
-const http = axios.create({
-  baseURL: 'https://aqnsbpgyu9.execute-api.eu-west-1.amazonaws.com/api',
-  withCredentials: true,
+const baseURL = 'https://aqnsbpgyu9.execute-api.eu-west-1.amazonaws.com/api';
+const http = axios.create({ baseURL });
+
+http.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
 });
 
-export const uploadApi = {
-  uploadRequestImage: async (file: File): Promise<{ imageUrl: string }> => {
-    const form = new FormData();
-    form.append('file', file);
-    const { data } = await http.post<{ imageUrl: string }>('/uploads/request-image', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return data;
-  },
-};
-
 export const authApi = {
-  login: async (body: { username: string; password: string }): Promise<UserDto> => {
-    const { data } = await http.post<UserDto>('/auth/login', body);
+  login: async (body: {
+    username: string;
+    password: string;
+  }): Promise<{ user: UserDto; token: string }> => {
+    const { data } = await http.post<{ user: UserDto; token: string }>('/auth/login', body);
     return data;
   },
   register: async (body: {

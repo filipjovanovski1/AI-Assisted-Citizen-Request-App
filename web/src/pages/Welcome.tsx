@@ -7,6 +7,7 @@ import {
   TeamOutlined,
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
+import { ROUTES } from '../config/routes';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -38,7 +39,15 @@ export const WelcomePage: React.FC = () => {
   const { token } = theme.useToken();
 
   return (
-    <div style={{ minHeight: '100vh', background: token.colorBgLayout, overflowX: 'hidden' }}>
+    <div
+      style={{
+        minHeight: '100vh',
+        background: token.colorBgLayout,
+        overflowX: 'hidden',
+        paddingTop: 64,
+        boxSizing: 'border-box',
+      }}
+    >
       {/* Header */}
       <header
         style={{
@@ -48,15 +57,37 @@ export const WelcomePage: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          position: 'sticky',
+          position: 'fixed',
           top: 0,
+          width: '100%',
           background: token.colorBgContainer,
-          zIndex: 100,
+          zIndex: 1000,
         }}
       >
-        <Text strong style={{ fontSize: 18, color: '#1677ff' }}>
-          Citizen Request System
-        </Text>
+        <div
+          style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8 }}
+          onClick={() => navigate(ROUTES.DASHBOARD)}
+        >
+          <div
+            style={{
+              width: 24,
+              height: 24,
+              borderRadius: 6,
+              border: `1px solid ${token.colorBorderSecondary}`,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: token.colorInfo,
+              background: token.colorBgElevated,
+            }}
+            title="City Service Hub"
+          >
+            <EnvironmentOutlined style={{ fontSize: 13 }} />
+          </div>
+          <Text strong style={{ fontSize: 18, color: '#ffffff' }}>
+            Citizen Request System
+          </Text>
+        </div>
         <Space>
           <Button onClick={() => navigate('/login')}>Sign in</Button>
           <Button type="primary" onClick={() => navigate('/register')}>
