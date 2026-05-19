@@ -38,7 +38,7 @@ public class AiTriageServiceImpl implements AiTriageService {
     ServiceRequest request = findRequestById(requestId);
 
     if (aiTriageResultRepository.existsByServiceRequestId(requestId)) {
-      throw new RuntimeException("AI triage already exists for this request.");
+      throw new RuntimeException("AI already exists for this request.");
     }
 
     List<Department> departments = departmentRepository.findAllByActiveTrue();
@@ -77,7 +77,7 @@ public class AiTriageServiceImpl implements AiTriageService {
         oldDepartment,
         suggestedDepartment,
         null,
-        "AI triage suggested department: "
+        "AI automatically suggested department: "
             + suggestedDepartment.getName()
             + " with confidence: "
             + prediction.confidence());
@@ -126,7 +126,7 @@ public class AiTriageServiceImpl implements AiTriageService {
         employee,
         dto != null && dto.getNote() != null
             ? dto.getNote()
-            : "Department accepted the AI triage assignment.");
+            : "Department accepted the AI assignment.");
 
     return mapToDto(savedResult);
   }
@@ -167,7 +167,7 @@ public class AiTriageServiceImpl implements AiTriageService {
         employee,
         dto != null && dto.getNote() != null
             ? dto.getNote()
-            : "Department declined the AI triage assignment. Admin review required.");
+            : "Department declined the AI assignment. Admin review required.");
 
     return mapToDto(savedResult);
   }
@@ -221,7 +221,7 @@ public class AiTriageServiceImpl implements AiTriageService {
         admin,
         dto.getNote() != null
             ? dto.getNote()
-            : "Admin reviewed AI triage and updated the request department.");
+            : "Admin reviewed AI and updated the request department.");
 
     return mapToDto(savedResult);
   }
@@ -235,7 +235,7 @@ public class AiTriageServiceImpl implements AiTriageService {
   private AiTriageResult findTriageResultByRequestId(Long requestId) {
     return aiTriageResultRepository
         .findByServiceRequestId(requestId)
-        .orElseThrow(() -> new RuntimeException("AI triage result not found for this request."));
+        .orElseThrow(() -> new RuntimeException("AI result not found for this request."));
   }
 
   private User findUserById(Long userId) {

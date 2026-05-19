@@ -16,7 +16,7 @@ public class TemporaryAiTriageClient implements AiTriageClient {
   public AiDepartmentPrediction classify(
       ServiceRequest request, List<Department> availableDepartments) {
     if (availableDepartments == null || availableDepartments.isEmpty()) {
-      throw new RuntimeException("No departments available for AI triage.");
+      throw new RuntimeException("No departments available for AI.");
     }
     return new AiDepartmentPrediction(availableDepartments.get(0).getId(), 0.50);
   }

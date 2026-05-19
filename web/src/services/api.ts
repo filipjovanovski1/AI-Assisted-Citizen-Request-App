@@ -11,7 +11,10 @@ import type {
   ImportResultDto,
 } from '../types';
 
-const http = axios.create({ baseURL: '/api', withCredentials: true });
+const http = axios.create({
+  baseURL: 'https://aqnsbpgyu9.execute-api.eu-west-1.amazonaws.com/api',
+  withCredentials: true,
+});
 
 export const uploadApi = {
   uploadRequestImage: async (file: File): Promise<{ imageUrl: string }> => {
@@ -392,8 +395,12 @@ export const adminApi = {
   },
   exportReport: async (adminId: number, from?: string, to?: string): Promise<Blob> => {
     const params: Record<string, string | number> = { adminId };
-    if (from) {params.from = from;}
-    if (to) {params.to = to;}
+    if (from) {
+      params.from = from;
+    }
+    if (to) {
+      params.to = to;
+    }
     const { data } = await http.get('/admin/export/report', {
       params,
       responseType: 'blob',

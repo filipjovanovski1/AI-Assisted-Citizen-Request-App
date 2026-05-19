@@ -34,7 +34,7 @@ public class OpenAiTriageClient implements AiTriageClient {
   public AiDepartmentPrediction classify(
       ServiceRequest request, List<Department> availableDepartments) {
     if (availableDepartments == null || availableDepartments.isEmpty()) {
-      throw new RuntimeException("No departments available for AI triage.");
+      throw new RuntimeException("No departments available for AI.");
     }
 
     if (apiKey == null || apiKey.isBlank()) {
