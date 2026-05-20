@@ -59,10 +59,6 @@ public class RequestCommentServiceImpl implements RequestCommentService {
 
     ServiceRequest request = findRequestById(requestId);
 
-    if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
-      throw new RuntimeException("Citizens can only comment on their own requests.");
-    }
-
     validateBody(dto);
 
     RequestComment comment = new RequestComment();
@@ -111,11 +107,7 @@ public class RequestCommentServiceImpl implements RequestCommentService {
     User citizen = findUserById(citizenId);
     validateCitizen(citizen);
 
-    ServiceRequest request = findRequestById(requestId);
-
-    if (request.getCitizen() == null || !request.getCitizen().getId().equals(citizenId)) {
-      throw new RuntimeException("Citizens can only modify comments on their own requests.");
-    }
+    findRequestById(requestId);
 
     RequestComment comment =
         requestCommentRepository
