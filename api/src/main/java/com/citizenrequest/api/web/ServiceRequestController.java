@@ -31,11 +31,12 @@ public class ServiceRequestController {
       @RequestParam(required = false) Long currentUserId,
       @RequestParam(required = false) RequestStatus status,
       @RequestParam(required = false) Long departmentId,
+      @RequestParam(required = false) Boolean misclassified,
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) LocalDate from,
       @RequestParam(required = false) LocalDate to) {
     return serviceRequestService.findPublicRequests(
-        currentUserId, status, departmentId, keyword, from, to);
+        currentUserId, status, departmentId, misclassified, keyword, from, to);
   }
 
   @GetMapping("/public/requests/{requestId}")
@@ -131,8 +132,15 @@ public class ServiceRequestController {
   }
 
   @GetMapping("/employees/{employeeId}/requests")
-  public List<ServiceRequestDto> findDepartmentRequests(@PathVariable Long employeeId) {
-    return serviceRequestService.findDepartmentRequests(employeeId);
+  public List<ServiceRequestDto> findDepartmentRequests(
+      @PathVariable Long employeeId,
+      @RequestParam(required = false) RequestStatus status,
+      @RequestParam(required = false) Boolean misclassified,
+      @RequestParam(required = false) String keyword,
+      @RequestParam(required = false) LocalDate from,
+      @RequestParam(required = false) LocalDate to) {
+    return serviceRequestService.findDepartmentRequests(
+        employeeId, status, misclassified, keyword, from, to);
   }
 
   @PutMapping("/employees/{employeeId}/requests/{requestId}/status")

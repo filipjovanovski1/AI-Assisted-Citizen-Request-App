@@ -9,6 +9,10 @@ import { STATUS_SELECT_OPTIONS } from '../constants/requestStatus';
 import type { Dayjs } from 'dayjs';
 
 const { RangePicker } = DatePicker;
+const MISCLASSIFICATION_FILTER_OPTIONS = [
+  { value: true, label: 'Misclassified only' },
+  { value: false, label: 'Exclude misclassified' },
+];
 
 export const DashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -19,8 +23,10 @@ export const DashboardPage: React.FC = () => {
 
   const [statusFilter, setStatusFilter] = useState<RequestStatus | undefined>();
   const [departmentFilter, setDepartmentFilter] = useState<number | undefined>();
+  const [misclassifiedFilter, setMisclassifiedFilter] = useState<boolean | undefined>();
   const [keywordFilter, setKeywordFilter] = useState('');
   const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
+  const isAdmin = user?.role === 'ADMIN';
 
   useEffect(() => {
     departmentApi
@@ -38,6 +44,7 @@ export const DashboardPage: React.FC = () => {
         const data = await publicApi.getRequests(user?.id, {
           status: statusFilter,
           departmentId: departmentFilter,
+          misclassified: misclassifiedFilter,
           keyword: keywordFilter || undefined,
           from: dateRange[0] ? dateRange[0].format('YYYY-MM-DD') : undefined,
           to: dateRange[1] ? dateRange[1].format('YYYY-MM-DD') : undefined,
@@ -57,7 +64,7 @@ export const DashboardPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [user?.id, statusFilter, departmentFilter, keywordFilter, dateRange]);
+  }, [user?.id, statusFilter, departmentFilter, misclassifiedFilter, keywordFilter, dateRange]);
 
   return (
     <div>
@@ -83,6 +90,16 @@ export const DashboardPage: React.FC = () => {
           value={departmentFilter}
           onChange={(v) => setDepartmentFilter(v)}
         />
+        {isAdmin ? (
+          <Select
+            allowClear
+            placeholder="AI review"
+            style={{ width: 180 }}
+            options={MISCLASSIFICATION_FILTER_OPTIONS}
+            value={misclassifiedFilter}
+            onChange={(v) => setMisclassifiedFilter(v)}
+          />
+        ) : null}
         <Input.Search
           placeholder="Keyword search..."
           allowClear
@@ -107,6 +124,7 @@ export const DashboardPage: React.FC = () => {
         requests={requests}
         loading={loading}
         error={error}
+        showAiReview={isAdmin}
         tableTitle="Recent Reports"
       />
     </div>

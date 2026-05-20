@@ -1,7 +1,8 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Alert, Button, Form, Input, Modal, Select, Space } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, DatePicker, Form, Input, Modal, Select, Space, Tag } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { useNavigate } from 'react-router-dom';
+import type { Dayjs } from 'dayjs';
 
 import type { RequestStatus, ServiceRequestDto } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -10,6 +11,11 @@ import { staffApi } from '../services/api';
 import { RequestMapDashboard } from '../components/RequestMapDashboard';
 import { PageHeader } from '../components/PageHeader';
 import { STATUS_OPTIONS, STATUS_LABELS } from '../constants/requestStatus';
+
+const MISCLASSIFICATION_FILTER_OPTIONS = [
+  { value: true, label: 'Misclassified only' },
+  { value: false, label: 'Exclude misclassified' },
+];
 
 export const StaffDashboardPage: React.FC = () => {
   const { user } = useAuth();
@@ -21,38 +27,55 @@ export const StaffDashboardPage: React.FC = () => {
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [commentModalOpen, setCommentModalOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [statusFilter, setStatusFilter] = useState<RequestStatus | undefined>();
+  const [misclassifiedFilter, setMisclassifiedFilter] = useState<boolean | undefined>();
+  const [keywordFilter, setKeywordFilter] = useState('');
+  const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
 
   const [statusForm] = Form.useForm<{ status: RequestStatus; note?: string }>();
   const [commentForm] = Form.useForm<{ body: string }>();
+
+  const requestFilters = useMemo(
+    () => ({
+      status: statusFilter,
+      misclassified: misclassifiedFilter,
+      keyword: keywordFilter || undefined,
+      from: dateRange[0] ? dateRange[0].format('YYYY-MM-DD') : undefined,
+      to: dateRange[1] ? dateRange[1].format('YYYY-MM-DD') : undefined,
+    }),
+    [dateRange, keywordFilter, misclassifiedFilter, statusFilter],
+  );
 
   const loadRequests = useCallback(async () => {
     if (!user) {
       return;
     }
+
     setLoading(true);
     setError(null);
     try {
-      const data = await staffApi.getDepartmentRequests(user.id);
+      const data = await staffApi.getDepartmentRequests(user.id, requestFilters);
       setRequests(data);
     } catch (err) {
       setError(getApiError(err, 'Failed to load department requests.'));
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [requestFilters, user]);
 
   useEffect(() => {
     if (user?.role !== 'MUNICIPAL_EMPLOYEE') {
       return;
     }
+
     let active = true;
-    const doLoad = async () => {
-      setLoading(true);
-      setError(null);
+
+    void (async () => {
       try {
-        const data = await staffApi.getDepartmentRequests(user.id);
+        const data = await staffApi.getDepartmentRequests(user.id, requestFilters);
         if (active) {
           setRequests(data);
+          setError(null);
         }
       } catch (err) {
         if (active) {
@@ -63,12 +86,12 @@ export const StaffDashboardPage: React.FC = () => {
           setLoading(false);
         }
       }
-    };
-    void doLoad();
+    })();
+
     return () => {
       active = false;
     };
-  }, [user?.id, user?.role]);
+  }, [requestFilters, user?.id, user?.role]);
 
   const openStatusModal = (request: ServiceRequestDto) => {
     setSelectedRequest(request);
@@ -120,6 +143,13 @@ export const StaffDashboardPage: React.FC = () => {
   const actionColumns: ColumnsType<ServiceRequestDto> = [
     { title: 'Address', dataIndex: 'address', key: 'address' },
     {
+      title: 'AI Review',
+      dataIndex: 'departmentMisclassification',
+      key: 'departmentMisclassification',
+      render: (departmentMisclassification: boolean) =>
+        departmentMisclassification ? <Tag color="volcano">Misclassified</Tag> : <Tag>Normal</Tag>,
+    },
+    {
       title: 'Actions',
       key: 'actions',
       render: (_, request) => (
@@ -149,12 +179,53 @@ export const StaffDashboardPage: React.FC = () => {
         subtitle="Only requests assigned to your department are visible here."
       />
 
+      <Space wrap>
+        <Select
+          allowClear
+          placeholder="Filter by status"
+          style={{ width: 160 }}
+          options={STATUS_OPTIONS.map((status) => ({
+            value: status,
+            label: STATUS_LABELS[status],
+          }))}
+          value={statusFilter}
+          onChange={(value) => setStatusFilter(value)}
+        />
+        <Select
+          allowClear
+          placeholder="AI review"
+          style={{ width: 180 }}
+          options={MISCLASSIFICATION_FILTER_OPTIONS}
+          value={misclassifiedFilter}
+          onChange={(value) => setMisclassifiedFilter(value)}
+        />
+        <Input.Search
+          placeholder="Keyword search..."
+          allowClear
+          style={{ width: 220 }}
+          onSearch={(value) => setKeywordFilter(value)}
+          onChange={(e) => {
+            if (!e.target.value) {
+              setKeywordFilter('');
+            }
+          }}
+        />
+        <DatePicker.RangePicker
+          value={dateRange}
+          onChange={(range) => setDateRange(range ? [range[0], range[1]] : [null, null])}
+          format="YYYY-MM-DD"
+          placeholder={['From date', 'To date']}
+          allowEmpty={[true, true]}
+        />
+      </Space>
+
       <RequestMapDashboard
         requests={requests}
         loading={loading}
         error={error}
         extraColumns={actionColumns}
         showDepartmentColumn={false}
+        showDepartmentVolume={false}
         tableTitle="Assigned Requests"
       />
 

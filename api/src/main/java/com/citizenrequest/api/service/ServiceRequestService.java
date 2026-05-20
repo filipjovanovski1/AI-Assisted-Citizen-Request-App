@@ -15,6 +15,7 @@ public interface ServiceRequestService {
       Long currentUserId,
       RequestStatus status,
       Long departmentId,
+      Boolean misclassified,
       String keyword,
       LocalDate from,
       LocalDate to);
@@ -25,7 +26,13 @@ public interface ServiceRequestService {
 
   ServiceRequestDto findMyRequestById(Long requestId, Long citizenId);
 
-  List<ServiceRequestDto> findDepartmentRequests(Long employeeId);
+  List<ServiceRequestDto> findDepartmentRequests(
+      Long employeeId,
+      RequestStatus status,
+      Boolean misclassified,
+      String keyword,
+      LocalDate from,
+      LocalDate to);
 
   ServiceRequestDto findById(Long requestId, Long currentUserId);
 

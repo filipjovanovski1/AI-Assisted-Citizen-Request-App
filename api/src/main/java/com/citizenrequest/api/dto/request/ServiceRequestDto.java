@@ -17,6 +17,8 @@ public record ServiceRequestDto(
     Boolean anonymousSubmission,
     Long departmentId,
     String departmentName,
+    boolean misclassification,
+    boolean departmentMisclassification,
     long voteCount,
     boolean likedByCurrentUser,
     long commentCount,

@@ -14,7 +14,7 @@ services:
       retries: 5
 
   api:
-    build: ./api
+    image: ddukoski/cra:latest
     ports:
       - "8080:8080"
     environment:
@@ -24,10 +24,15 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       AI_OPENAI_API_KEY: ${AI_OPENAI_API_KEY:-}
       JWT_SECRET: ${JWT_SECRET:-change-this-secret-in-production-min-32-chars!!}
-      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,https://citizen-requests.duko-7.workers.dev}
+      APP_UPLOAD_DIR: /app/uploads
+    volumes:
+      - cra-uploads:/app/uploads
+
     depends_on:
       db:
         condition: service_healthy
 
 volumes:
   pgdata:
+  cra-uploads:

@@ -43,7 +43,11 @@ public class SecurityConfig {
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(
             auth ->
-                auth.requestMatchers("/api/auth/**", "/error")
+                auth.requestMatchers(HttpMethod.OPTIONS, "/**")
+                    .permitAll()
+                    .requestMatchers("/api/auth/**", "/error")
+                    .permitAll()
+                    .requestMatchers(HttpMethod.GET, "/uploads/**")
                     .permitAll()
                     .requestMatchers(HttpMethod.GET, "/api/public/**", "/api/departments/**")
                     .permitAll()
@@ -57,6 +61,8 @@ public class SecurityConfig {
                     .hasRole("CITIZEN")
                     .requestMatchers(HttpMethod.POST, "/api/requests/*/vote")
                     .hasRole("CITIZEN")
+                    .requestMatchers(HttpMethod.POST, "/api/uploads/**")
+                    .authenticated()
                     .requestMatchers(HttpMethod.GET, "/api/requests/*/ai-triage")
                     .authenticated()
                     .requestMatchers("/api/users/**")

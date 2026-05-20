@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Alert, Card, Col, Empty, Progress, Row, Spin, Statistic, Table, Typography } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
-import { publicApi } from '../services/api';
+import { publicApi, staffApi } from '../services/api';
 import { getApiError } from '../utils/toast';
 import type { RequestStatus, ServiceRequestDto } from '../types';
 import { useAuth } from '../context/AuthContext';
@@ -17,6 +17,7 @@ type DepartmentRow = {
   requests: number;
   share: number;
   resolvedRate: number;
+  misclassified: number;
 };
 
 export const StatisticsPage: React.FC = () => {
@@ -24,14 +25,40 @@ export const StatisticsPage: React.FC = () => {
   const [requests, setRequests] = useState<ServiceRequestDto[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const isDepartmentEmployee = user?.role === 'MUNICIPAL_EMPLOYEE';
 
   useEffect(() => {
-    publicApi
-      .getRequests(user?.id)
-      .then(setRequests)
-      .catch((err) => setError(getApiError(err, 'Failed to load analytics data.')))
-      .finally(() => setLoading(false));
-  }, [user?.id]);
+    if (!user) {
+      return;
+    }
+
+    let active = true;
+
+    void (async () => {
+      try {
+        const data = isDepartmentEmployee
+          ? await staffApi.getDepartmentRequests(user.id)
+          : await publicApi.getRequests(user.id);
+
+        if (active) {
+          setRequests(data);
+          setError(null);
+        }
+      } catch (err) {
+        if (active) {
+          setError(getApiError(err, 'Failed to load analytics data.'));
+        }
+      } finally {
+        if (active) {
+          setLoading(false);
+        }
+      }
+    })();
+
+    return () => {
+      active = false;
+    };
+  }, [isDepartmentEmployee, user]);
 
   const analytics = useMemo(() => {
     const total = requests.length;
@@ -42,10 +69,11 @@ export const StatisticsPage: React.FC = () => {
       comments: number;
       geoTagged: number;
       anonymous: number;
-      byDepartment: Record<string, { total: number; resolved: number }>;
+      misclassified: number;
+      byDepartment: Record<string, { total: number; resolved: number; misclassified: number }>;
     };
 
-    const { statusCounts, supported, comments, geoTagged, anonymous, byDepartment } =
+    const { statusCounts, supported, comments, geoTagged, anonymous, misclassified, byDepartment } =
       requests.reduce<ReduceAcc>(
         (acc, req) => {
           acc.statusCounts[req.status] += 1;
@@ -53,14 +81,20 @@ export const StatisticsPage: React.FC = () => {
           acc.comments += req.commentCount;
           if (req.latitude && req.longitude) { acc.geoTagged += 1; }
           if (req.anonymousSubmission) { acc.anonymous += 1; }
+          if (isDepartmentEmployee ? req.departmentMisclassification : req.misclassification) {
+            acc.misclassified += 1;
+          }
 
           const key = req.departmentName || 'Unassigned';
           if (!acc.byDepartment[key]) {
-            acc.byDepartment[key] = { total: 0, resolved: 0 };
+            acc.byDepartment[key] = { total: 0, resolved: 0, misclassified: 0 };
           }
           acc.byDepartment[key].total += 1;
           if (req.status === 'RESOLVED' || req.status === 'CLOSED') {
             acc.byDepartment[key].resolved += 1;
+          }
+          if (isDepartmentEmployee ? req.departmentMisclassification : req.misclassification) {
+            acc.byDepartment[key].misclassified += 1;
           }
           return acc;
         },
@@ -70,6 +104,7 @@ export const StatisticsPage: React.FC = () => {
           comments: 0,
           geoTagged: 0,
           anonymous: 0,
+          misclassified: 0,
           byDepartment: {},
         },
       );
@@ -85,6 +120,7 @@ export const StatisticsPage: React.FC = () => {
         requests: value.total,
         share: total === 0 ? 0 : Math.round((value.total / total) * 100),
         resolvedRate: value.total === 0 ? 0 : Math.round((value.resolved / value.total) * 100),
+        misclassified: value.misclassified,
       }))
       .sort((a, b) => b.requests - a.requests);
 
@@ -96,13 +132,14 @@ export const StatisticsPage: React.FC = () => {
       comments,
       geoTagged,
       anonymous,
+      misclassified,
       statusCounts,
       departmentRows,
       resolutionRate: total === 0 ? 0 : Math.round((resolved / total) * 100),
       geoRate: total === 0 ? 0 : Math.round((geoTagged / total) * 100),
       anonymousRate: total === 0 ? 0 : Math.round((anonymous / total) * 100),
     };
-  }, [requests]);
+  }, [isDepartmentEmployee, requests]);
 
   const deptColumns: ColumnsType<DepartmentRow> = [
     { title: 'Department', dataIndex: 'department', key: 'department' },
@@ -121,6 +158,7 @@ export const StatisticsPage: React.FC = () => {
       width: 180,
       render: (rate: number) => <Progress percent={rate} size="small" />,
     },
+    { title: 'AI Flagged', dataIndex: 'misclassified', key: 'misclassified', width: 120 },
   ];
 
   if (loading) {
@@ -143,7 +181,11 @@ export const StatisticsPage: React.FC = () => {
     <div>
       <PageHeader
         title="Analytics"
-        subtitle="Administrative insight into platform performance, operational load, and resolution quality."
+        subtitle={
+          isDepartmentEmployee
+            ? 'Department insight into request volume, operational load, and resolution progress.'
+            : 'Administrative insight into platform performance, operational load, and resolution quality.'
+        }
       />
 
       <Row gutter={16} style={{ marginBottom: 18 }}>
@@ -170,6 +212,11 @@ export const StatisticsPage: React.FC = () => {
         <Col xs={12} md={8} lg={4}>
           <Card>
             <Statistic title="Comments" value={analytics.comments} />
+          </Card>
+        </Col>
+        <Col xs={12} md={8} lg={4}>
+          <Card>
+            <Statistic title="AI Flagged" value={analytics.misclassified} />
           </Card>
         </Col>
         <Col xs={12} md={8} lg={4}>

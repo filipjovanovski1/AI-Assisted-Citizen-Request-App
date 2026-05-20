@@ -123,11 +123,12 @@ public class AdminController {
       @RequestParam(required = false) Long adminId,
       @RequestParam(required = false) RequestStatus status,
       @RequestParam(required = false) Long departmentId,
+      @RequestParam(required = false) Boolean misclassified,
       @RequestParam(required = false) String keyword,
       @RequestParam(required = false) LocalDate from,
       @RequestParam(required = false) LocalDate to) {
     return serviceRequestService.findPublicRequests(
-        adminId, status, departmentId, keyword, from, to);
+        adminId, status, departmentId, misclassified, keyword, from, to);
   }
 
   @GetMapping("/requests/{requestId}")

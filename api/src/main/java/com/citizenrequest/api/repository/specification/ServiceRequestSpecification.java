@@ -2,6 +2,7 @@ package com.citizenrequest.api.repository.specification;
 
 import com.citizenrequest.api.domain.RequestStatus;
 import com.citizenrequest.api.domain.ServiceRequest;
+import jakarta.persistence.criteria.JoinType;
 import java.time.LocalDate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -49,6 +50,50 @@ public class ServiceRequestSpecification {
           criteriaBuilder.like(criteriaBuilder.lower(root.get("title")), pattern),
           criteriaBuilder.like(criteriaBuilder.lower(root.get("description")), pattern),
           criteriaBuilder.like(criteriaBuilder.lower(root.get("address")), pattern));
+    };
+  }
+
+  public static Specification<ServiceRequest> hasMisclassification(Boolean misclassified) {
+    return (root, query, criteriaBuilder) -> {
+      if (misclassified == null) {
+        return null;
+      }
+
+      var triageJoin = root.join("aiTriageResult", JoinType.LEFT);
+
+      if (misclassified) {
+        return criteriaBuilder.isTrue(triageJoin.get("misclassification"));
+      }
+
+      return criteriaBuilder.or(
+          criteriaBuilder.isNull(triageJoin.get("id")),
+          criteriaBuilder.isFalse(triageJoin.get("misclassification")));
+    };
+  }
+
+  public static Specification<ServiceRequest> hasDepartmentMisclassification(
+      Boolean misclassified) {
+    return (root, query, criteriaBuilder) -> {
+      if (misclassified == null) {
+        return null;
+      }
+
+      var triageJoin = root.join("aiTriageResult", JoinType.LEFT);
+      var pendingDepartmentReview =
+          criteriaBuilder.and(
+              criteriaBuilder.isTrue(triageJoin.get("misclassification")),
+              criteriaBuilder.equal(root.get("status"), RequestStatus.IN_REVIEW),
+              criteriaBuilder.or(
+                  criteriaBuilder.isNull(triageJoin.get("adminRevised")),
+                  criteriaBuilder.isFalse(triageJoin.get("adminRevised"))));
+
+      if (misclassified) {
+        return pendingDepartmentReview;
+      }
+
+      return criteriaBuilder.or(
+          criteriaBuilder.isNull(triageJoin.get("id")),
+          criteriaBuilder.not(pendingDepartmentReview));
     };
   }
 

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { Form, Input, Button, Typography, Alert, theme } from 'antd';
 import { UserOutlined, LockOutlined, IdcardOutlined } from '@ant-design/icons';
 import { useNavigate, Link } from 'react-router-dom';
+import { ROUTES } from '../config/routes';
 import { useAuth } from '../context/AuthContext';
-import { getApiError } from '../utils/toast';
+import { getApiError, toast } from '../utils/toast';
 
 const { Title, Text } = Typography;
 
@@ -25,7 +26,8 @@ export const RegisterPage: React.FC = () => {
     setError(null);
     try {
       await register(values);
-      navigate('/dashboard');
+      toast.success('Account created successfully. Please sign in.');
+      navigate(ROUTES.LOGIN);
     } catch (e: unknown) {
       setError(getApiError(e, 'Registration failed. Please try again.'));
     } finally {

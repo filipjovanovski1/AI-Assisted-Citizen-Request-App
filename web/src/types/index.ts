@@ -40,6 +40,8 @@ export interface ServiceRequestDto {
   anonymousSubmission: boolean;
   departmentId?: number;
   departmentName?: string;
+  misclassification: boolean;
+  departmentMisclassification: boolean;
   voteCount: number;
   likedByCurrentUser: boolean;
   commentCount: number;
@@ -76,6 +78,7 @@ export interface CreateRequestPayload {
   address?: string;
   latitude?: number;
   longitude?: number;
+  imageUrl?: string;
   anonymousSubmission?: boolean;
 }
 

@@ -26,6 +26,7 @@ import type {
   RequestStatus,
   ServiceRequestDto,
   UserDto,
+  UserRole,
 } from '../types';
 import { useAuth } from '../context/AuthContext';
 import { toast, getApiError } from '../utils/toast';
@@ -33,6 +34,11 @@ import { adminApi } from '../services/api';
 import { PageHeader } from '../components/PageHeader';
 import { STATUS_SELECT_OPTIONS } from '../constants/requestStatus';
 const { Text } = Typography;
+
+const MISCLASSIFICATION_FILTER_OPTIONS = [
+  { value: true, label: 'Misclassified only' },
+  { value: false, label: 'Exclude misclassified' },
+];
 
 export const AdminPanelPage: React.FC = () => {
   const { user } = useAuth();
@@ -47,10 +53,12 @@ export const AdminPanelPage: React.FC = () => {
   const [newDepartmentModalOpen, setNewDepartmentModalOpen] = useState(false);
   const [editDepartmentModalOpen, setEditDepartmentModalOpen] = useState(false);
   const [newEmployeeModalOpen, setNewEmployeeModalOpen] = useState(false);
+  const [editUserModalOpen, setEditUserModalOpen] = useState(false);
   const [assignModalOpen, setAssignModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<ServiceRequestDto | null>(null);
   const [selectedDepartment, setSelectedDepartment] = useState<DepartmentDto | null>(null);
+  const [selectedManagedUser, setSelectedManagedUser] = useState<UserDto | null>(null);
   const [exportDateRange, setExportDateRange] = useState<[Dayjs | null, Dayjs | null]>([
     null,
     null,
@@ -62,6 +70,7 @@ export const AdminPanelPage: React.FC = () => {
   // Request filters
   const [reqStatus, setReqStatus] = useState<RequestStatus | undefined>();
   const [reqDepartment, setReqDepartment] = useState<number | undefined>();
+  const [reqMisclassified, setReqMisclassified] = useState<boolean | undefined>();
   const [reqKeyword, setReqKeyword] = useState('');
   const [reqDateRange, setReqDateRange] = useState<[Dayjs | null, Dayjs | null]>([null, null]);
 
@@ -77,6 +86,15 @@ export const AdminPanelPage: React.FC = () => {
     embg?: string;
     password: string;
     departmentId: number;
+  }>();
+  const [editUserForm] = Form.useForm<{
+    username: string;
+    firstName: string;
+    lastName: string;
+    embg?: string;
+    password?: string;
+    role: UserRole;
+    departmentId?: number;
   }>();
   const [assignForm] = Form.useForm<{ departmentId: number; note?: string }>();
   const [statusForm] = Form.useForm<{ status: RequestStatus; note?: string }>();
@@ -123,6 +141,7 @@ export const AdminPanelPage: React.FC = () => {
         const data = await adminApi.getRequests(user.id, {
           status: reqStatus,
           departmentId: reqDepartment,
+          misclassified: reqMisclassified,
           keyword: reqKeyword || undefined,
           from: reqDateRange[0] ? reqDateRange[0].format('YYYY-MM-DD') : undefined,
           to: reqDateRange[1] ? reqDateRange[1].format('YYYY-MM-DD') : undefined,
@@ -144,7 +163,7 @@ export const AdminPanelPage: React.FC = () => {
     return () => {
       active = false;
     };
-  }, [user, reqStatus, reqDepartment, reqKeyword, reqDateRange]);
+  }, [user, reqStatus, reqDepartment, reqMisclassified, reqKeyword, reqDateRange]);
 
   const loadData = async () => {
     if (!user) {
@@ -159,6 +178,7 @@ export const AdminPanelPage: React.FC = () => {
         adminApi.getRequests(user.id, {
           status: reqStatus,
           departmentId: reqDepartment,
+          misclassified: reqMisclassified,
           keyword: reqKeyword || undefined,
           from: reqDateRange[0] ? reqDateRange[0].format('YYYY-MM-DD') : undefined,
           to: reqDateRange[1] ? reqDateRange[1].format('YYYY-MM-DD') : undefined,
@@ -204,6 +224,20 @@ export const AdminPanelPage: React.FC = () => {
     setEditDepartmentModalOpen(true);
   };
 
+  const openUserEdit = (managedUser: UserDto) => {
+    setSelectedManagedUser(managedUser);
+    editUserForm.setFieldsValue({
+      username: managedUser.username,
+      firstName: managedUser.firstName,
+      lastName: managedUser.lastName,
+      embg: undefined,
+      password: undefined,
+      role: managedUser.role,
+      departmentId: managedUser.departmentId,
+    });
+    setEditUserModalOpen(true);
+  };
+
   const submitCreateDepartment = async () => {
     const values = await departmentForm.validateFields();
     setSaving(true);
@@ -240,15 +274,54 @@ export const AdminPanelPage: React.FC = () => {
 
   const submitCreateEmployee = async () => {
     const values = await employeeForm.validateFields();
+    const payload = {
+      username: values.username.trim(),
+      firstName: values.firstName.trim(),
+      lastName: values.lastName.trim(),
+      embg: values.embg?.trim() || undefined,
+      password: values.password.trim(),
+      departmentId: values.departmentId,
+    };
     setSaving(true);
     try {
-      await adminApi.createMunicipalEmployee(values);
-      toast.success('Department staff account created.');
+      await adminApi.createMunicipalEmployee(payload);
+      toast.success('Department staff account created or upgraded.');
       setNewEmployeeModalOpen(false);
       employeeForm.resetFields();
       await loadData();
     } catch (err) {
       toast.error(getApiError(err, 'Failed to create department staff account.'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const submitUpdateUser = async () => {
+    if (!selectedManagedUser) {
+      return;
+    }
+
+    const values = await editUserForm.validateFields();
+    const payload = {
+      username: values.username.trim(),
+      firstName: values.firstName.trim(),
+      lastName: values.lastName.trim(),
+      embg: values.embg?.trim() || undefined,
+      password: values.password?.trim() || undefined,
+      role: values.role,
+      departmentId: values.role === 'MUNICIPAL_EMPLOYEE' ? values.departmentId : undefined,
+    };
+
+    setSaving(true);
+    try {
+      await adminApi.updateUser(selectedManagedUser.id, payload);
+      toast.success('User updated successfully.');
+      setEditUserModalOpen(false);
+      setSelectedManagedUser(null);
+      editUserForm.resetFields();
+      await loadData();
+    } catch (err) {
+      toast.error(getApiError(err, 'Failed to update user.'));
     } finally {
       setSaving(false);
     }
@@ -411,23 +484,33 @@ export const AdminPanelPage: React.FC = () => {
     { title: 'Username', dataIndex: 'username', key: 'username' },
     { title: 'Name', key: 'name', render: (_, item) => `${item.firstName} ${item.lastName}` },
     { title: 'Role', dataIndex: 'role', key: 'role', render: (role) => <Tag>{role}</Tag> },
-    { title: 'Department', dataIndex: 'departmentName', key: 'departmentName' },
+    {
+      title: 'Department',
+      dataIndex: 'departmentName',
+      key: 'departmentName',
+      render: (value?: string) => value || <Text type="secondary">Unassigned</Text>,
+    },
     {
       title: 'Actions',
       key: 'actions',
       render: (_, record) => (
-        <Popconfirm
-          title="Delete user"
-          description="This cannot be undone."
-          okText="Delete"
-          cancelText="Cancel"
-          onConfirm={() => deleteUser(record.id)}
-          disabled={record.role === 'ADMIN'}
-        >
-          <Button danger size="small" disabled={record.role === 'ADMIN'}>
-            Delete
+        <Space>
+          <Button size="small" onClick={() => openUserEdit(record)}>
+            Edit
           </Button>
-        </Popconfirm>
+          <Popconfirm
+            title="Delete user"
+            description="This cannot be undone."
+            okText="Delete"
+            cancelText="Cancel"
+            onConfirm={() => deleteUser(record.id)}
+            disabled={record.role === 'ADMIN'}
+          >
+            <Button danger size="small" disabled={record.role === 'ADMIN'}>
+              Delete
+            </Button>
+          </Popconfirm>
+        </Space>
       ),
     },
   ];
@@ -503,6 +586,14 @@ export const AdminPanelPage: React.FC = () => {
       ),
     },
     {
+      title: 'AI Review',
+      dataIndex: 'misclassification',
+      key: 'misclassification',
+      width: 150,
+      render: (misclassification: boolean) =>
+        misclassification ? <Tag color="volcano">Misclassified</Tag> : <Tag>Normal</Tag>,
+    },
+    {
       title: 'Actions',
       key: 'actions',
       width: 300,
@@ -566,6 +657,14 @@ export const AdminPanelPage: React.FC = () => {
                     options={departments.map((d) => ({ value: d.id, label: d.name }))}
                     value={reqDepartment}
                     onChange={(v) => setReqDepartment(v)}
+                  />
+                  <Select
+                    allowClear
+                    placeholder="AI review"
+                    style={{ width: 180 }}
+                    options={MISCLASSIFICATION_FILTER_OPTIONS}
+                    value={reqMisclassified}
+                    onChange={(v) => setReqMisclassified(v)}
                   />
                   <Input.Search
                     placeholder="Keyword search..."
@@ -778,7 +877,7 @@ export const AdminPanelPage: React.FC = () => {
       >
         <Form form={employeeForm} layout="vertical">
           <Form.Item name="username" label="Username" rules={[{ required: true }]}>
-            <Input />
+            <Input placeholder="Existing citizen usernames will be upgraded to staff" />
           </Form.Item>
           <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
             <Input />
@@ -794,6 +893,65 @@ export const AdminPanelPage: React.FC = () => {
           </Form.Item>
           <Form.Item name="departmentId" label="Department" rules={[{ required: true }]}>
             <Select options={departmentOptions} />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      <Modal
+        title={`Edit User${selectedManagedUser ? `: ${selectedManagedUser.username}` : ''}`}
+        open={editUserModalOpen}
+        onCancel={() => {
+          setEditUserModalOpen(false);
+          setSelectedManagedUser(null);
+        }}
+        onOk={submitUpdateUser}
+        confirmLoading={saving}
+      >
+        <Form form={editUserForm} layout="vertical">
+          <Form.Item name="username" label="Username" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="firstName" label="First Name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="lastName" label="Last Name" rules={[{ required: true }]}>
+            <Input />
+          </Form.Item>
+          <Form.Item name="password" label="Password">
+            <Input.Password placeholder="Leave blank to keep current password" />
+          </Form.Item>
+          <Form.Item name="embg" label="EMBG">
+            <Input />
+          </Form.Item>
+          <Form.Item name="role" label="Role" rules={[{ required: true }]}>
+            <Select
+              options={[
+                { value: 'CITIZEN', label: 'Citizen' },
+                { value: 'MUNICIPAL_EMPLOYEE', label: 'Municipal Employee' },
+                { value: 'ADMIN', label: 'Admin' },
+              ]}
+              onChange={(value: UserRole) => {
+                if (value !== 'MUNICIPAL_EMPLOYEE') {
+                  editUserForm.setFieldValue('departmentId', undefined);
+                }
+              }}
+            />
+          </Form.Item>
+          <Form.Item
+            noStyle
+            shouldUpdate={(prev, next) => prev.role !== next.role}
+          >
+            {({ getFieldValue }) =>
+              getFieldValue('role') === 'MUNICIPAL_EMPLOYEE' ? (
+                <Form.Item
+                  name="departmentId"
+                  label="Department"
+                  rules={[{ required: true, message: 'Department is required.' }]}
+                >
+                  <Select options={departmentOptions} />
+                </Form.Item>
+              ) : null
+            }
           </Form.Item>
         </Form>
       </Modal>
