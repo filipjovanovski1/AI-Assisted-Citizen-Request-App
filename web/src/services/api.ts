@@ -11,16 +11,6 @@ import type {
   ImportResultDto,
 } from '../types';
 
-export const uploadApi = {
-  uploadRequestImage: async (file: File): Promise<{ imageUrl: string }> => {
-    const form = new FormData();
-    form.append('file', file);
-    const { data } = await http.post<{ imageUrl: string }>('/uploads/request-image', form, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return data;
-  },
-};
 const baseURL = 'https://aqnsbpgyu9.execute-api.eu-west-1.amazonaws.com/api';
 const http = axios.create({ baseURL });
 
@@ -31,6 +21,17 @@ http.interceptors.request.use((config) => {
   }
   return config;
 });
+
+export const uploadApi = {
+  uploadRequestImage: async (file: File): Promise<{ imageUrl: string }> => {
+    const form = new FormData();
+    form.append('file', file);
+    const { data } = await http.post<{ imageUrl: string }>('/uploads/request-image', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return data;
+  },
+};
 
 export const authApi = {
   login: async (body: {
