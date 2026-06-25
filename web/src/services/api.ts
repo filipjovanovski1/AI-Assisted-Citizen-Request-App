@@ -11,7 +11,7 @@ import type {
   ImportResultDto,
 } from '../types';
 
-const baseURL = 'https://aqnsbpgyu9.execute-api.eu-west-1.amazonaws.com/api';
+const baseURL = import.meta.env.VITE_API_BASE_URL ?? '/api';
 const http = axios.create({ baseURL });
 
 http.interceptors.request.use((config) => {
